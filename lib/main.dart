@@ -35,7 +35,6 @@ class NexusScreen extends StatefulWidget {
 }
 
 class _NexusScreenState extends State<NexusScreen> {
-  bool immersive = false;
   bool apkDialogOpen = false;
 
   @override
@@ -52,10 +51,6 @@ class _NexusScreenState extends State<NexusScreen> {
 
   Future<void> _handleNative(MethodCall call) async {
     if (!mounted) return;
-    if (call.method == 'immersive') {
-      setState(() => immersive = call.arguments == true);
-      return;
-    }
     if (call.method != 'message') return;
     try {
       final message =
@@ -67,8 +62,6 @@ class _NexusScreenState extends State<NexusScreen> {
           if (await saveDocument(filename, message['mime'] as String, bytes)) {
             if (mounted) _notice('Saved $filename');
           }
-        case 'fullscreen':
-          await native.invokeMethod<void>('fullscreen');
         case 'apk':
           if (apkDialogOpen) return;
           apkDialogOpen = true;
@@ -114,13 +107,7 @@ class _NexusScreenState extends State<NexusScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        body: SafeArea(
-          top: !immersive,
-          bottom: !immersive,
-          left: !immersive,
-          right: !immersive,
-          child: web,
-        ),
+        body: const SafeArea(child: web),
       ),
     );
   }
@@ -297,7 +284,7 @@ class _ApkDialogState extends State<ApkDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Creates and signs a standalone, full-screen game APK on this device.',
+              'Creates and signs a standalone game APK on this device.',
             ),
             const SizedBox(height: 16),
             input(

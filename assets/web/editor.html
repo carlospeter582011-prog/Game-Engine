@@ -24,6 +24,7 @@ select option{background:#142237;color:#e6f2ff;}
 button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
 .btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-weight:600;font-size:13px;min-height:40px;color:var(--text);transition:background .15s,transform .08s;}
 .btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.4;cursor:default;}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
 .btn-ok{background:var(--ok);border-color:var(--ok);color:#06281e;}
 .btn-warn{background:var(--warn);border-color:var(--warn);color:#2a1800;}
@@ -115,7 +116,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 #option-list{display:grid;gap:6px;max-height:min(55dvh,420px);overflow:auto;margin-top:8px}
 .option-row{justify-content:flex-start;text-align:left;width:100%;min-height:44px;overflow-wrap:anywhere}
 .option-row[aria-selected=true]{border-color:#55a9ff;background:#173958}
-#tm-canvas-wrap{overflow:auto;display:block;overscroll-behavior:contain}
+#tm-canvas-wrap{overflow:hidden;overscroll-behavior:contain}
 #tm-canvas-wrap canvas{display:block;max-width:none;max-height:none;touch-action:none}
 #tm-canvas-wrap.is-pan canvas{touch-action:pan-x pan-y}
 #preview-bar .row{flex-wrap:wrap}
@@ -201,14 +202,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 #preview-bar{height:auto;min-height:40px;padding:3px 8px}
 #preview-bar .row{flex-wrap:nowrap}
 #preview-canvas{display:block;flex:none;max-width:none;max-height:none;box-shadow:none}
-#prev-focus,#exit-focus{position:absolute;right:8px;z-index:25}
-#prev-focus{bottom:8px;min-width:38px;min-height:36px;background:rgba(20,34,51,.88)}
-#exit-focus{bottom:calc(8px + var(--safe-b));min-height:34px;background:rgba(20,34,51,.92)}
-#app.focused-workspace #topbar,#app.focused-workspace #bottom-nav,#app.focused-workspace #tutorial-bar,
-#app.focused-workspace #hierarchy-sheet,#preview-overlay.preview-focused #preview-bar{display:none}
-#app.focused-workspace #main-area{margin-bottom:var(--safe-b)}
-#app.focused-workspace #tm-canvas-actions{bottom:48px}
-#app.focused-workspace #ws-scene .floating-bar .pill-group{max-width:100%}
 @media(max-width:640px){
   #create-nav{display:flex}
   #create-subtabs{display:none}
@@ -262,7 +255,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     <div class="top-actions">
       <button class="btn btn-sm btn-icon" id="btn-undo" aria-label="Undo" title="Undo">↶</button>
       <button class="btn btn-sm btn-icon" id="btn-redo" aria-label="Redo" title="Redo">↷</button>
-      <button class="btn btn-sm btn-icon" id="btn-focus" aria-label="Focus workspace" title="Focus workspace" aria-pressed="false">⛶</button>
       <button class="btn btn-sm" id="btn-save" aria-label="Save Project">Save</button>
       <button class="btn btn-sm btn-ok" id="btn-play" aria-label="Play Preview">Play</button>
     </div>
@@ -444,8 +436,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
             <option value="line">Line</option><option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="pick">Pick color</option>
           </select>
           <input type="color" id="px-color" value="#38bdf8" aria-label="Pixel color">
-          <button class="btn btn-sm icon-action" id="px-undo" aria-label="Undo pixel edit" title="Undo">↶</button>
-          <button class="btn btn-sm icon-action" id="px-redo" aria-label="Redo pixel edit" title="Redo">↷</button>
           <button class="btn btn-sm" id="px-options" aria-label="Pixel art options">Options</button>
         </div>
         <div class="paint-palette" id="px-palette" aria-label="Pixel colors"></div>
@@ -469,7 +459,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
         <div class="workspace-toolbar paint-toolbar">
           <select id="tm-tool" aria-label="Tilemap tool">
             <option value="pencil">Paint</option><option value="eraser">Erase</option><option value="fill">Fill</option>
-            <option value="rect">Rectangle</option><option value="line">Line</option><option value="pan">Pan</option>
+            <option value="rect">Rectangle</option><option value="line">Line</option>
           </select>
           <select id="tm-select" aria-label="Tilemap layer"></select>
           <button class="btn btn-sm" id="tm-options" aria-label="Tilemap options">Options</button>
@@ -481,15 +471,15 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
         <div id="tm-canvas-actions" class="pill-group" aria-label="Tilemap view controls">
           <button class="tool-btn" id="tm-zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
           <button class="tool-btn" id="tm-zoom-fit" aria-label="Fit map" title="Fit map">Fit</button>
+          <button class="tool-btn" id="tm-pan" aria-pressed="false" title="Pan map">Pan</button>
           <button class="tool-btn" id="tm-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
         </div>
         <div id="tm-option-controls" class="options-grid" hidden>
           <button class="btn btn-sm btn-primary" id="tm-ensure">Add tilemap</button>
           <button class="btn btn-sm" id="tm-size">Map size</button>
-          <button class="btn btn-sm" id="tm-undo">Undo tile edit</button>
-          <button class="btn btn-sm" id="tm-redo">Redo tile edit</button>
           <button class="btn btn-sm" id="tm-import">Import Tiled JSON</button>
           <button class="btn btn-sm" id="tm-export">Export tilemap</button>
+          <button class="btn btn-sm btn-err" id="tm-delete">Delete tilemap</button>
         </div>
         <input type="file" id="tm-file" accept=".json,application/json" hidden>
       </div>
@@ -627,7 +617,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     </section>
   </main>
 
-  <button class="btn" id="exit-focus" hidden>Exit focus</button>
   <nav id="bottom-nav" aria-label="Workspace Navigation">
     <button class="nav-btn active" data-ws="home"><span class="nav-ico">🏠</span><span>Home</span></button>
     <button class="nav-btn" data-ws="scene"><span class="nav-ico">🎮</span><span>Scene</span></button>
@@ -655,7 +644,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
   </div>
   <div id="preview-stage">
     <canvas id="preview-canvas"></canvas>
-    <button class="btn btn-sm" id="prev-focus" aria-label="Hide preview controls" aria-pressed="false" title="Hide preview controls">⛶</button>
     <div id="preview-debug-hud" style="display:none;"></div>
   </div>
 </div>
@@ -1030,6 +1018,8 @@ function createNexusRuntime(root) {
       }
       this.updateTransforms();
 
+      this._updateCamera(0,true);
+
       // PlayOnStart Audio & OnStart Scripts
       for (const e of [...this.entities]) {
         const au = e.components.AudioSource;
@@ -1313,6 +1303,7 @@ function createNexusRuntime(root) {
 
       // 4. Tilemap Solid Collisions
       this._resolveTilemapCollisions();
+      this.updateTransforms();
     }
 
     _resolveTilemapCollisions() {
@@ -1338,12 +1329,12 @@ function createNexusRuntime(root) {
               const tid = tm.tiles[r * tm.cols + c] || 0;
               if (!solidSet.has(tid)) continue;
               const tileBox = { cx: ox + c * ts + ts * 0.5, cy: oy + r * ts + ts * 0.5, hw: ts * 0.5, hh: ts * 0.5, shape: 'rect' };
-              const curAABB = getColliderWorldAABB(e, col);
-              const hit = intersectShapes(curAABB, tileBox);
+              const hit = intersectShapes(aabb, tileBox);
               if (hit) {
-                tr.x -= hit.nx * hit.depth;
-                tr.y -= hit.ny * hit.depth;
-                if (hit.ny > 0.5 && rb.vy > 0) { rb.vy = 0; e._grounded = true; }
+                const dx = -hit.nx*hit.depth, dy = -hit.ny*hit.depth;
+                tr.x += dx; tr.y += dy;
+                aabb.cx += dx; aabb.cy += dy;
+                if (hit.ny > 0.5 && rb.vy >= 0) { rb.vy = 0; e._grounded = true; }
                 else if (hit.ny < -0.5 && rb.vy < 0) { rb.vy = 0; }
                 if (Math.abs(hit.nx) > 0.5) rb.vx = 0;
               }
@@ -1591,7 +1582,7 @@ function createNexusRuntime(root) {
       }
     }
 
-    _updateCamera(dt) {
+    _updateCamera(dt, snap = false) {
       const camEnt = this.entities.find(e => e.components.Camera && e.components.Camera.enabled);
       if (!camEnt) return;
       const cam = camEnt.components.Camera;
@@ -1606,7 +1597,7 @@ function createNexusRuntime(root) {
       }
       const vw = this.project.settings?.width || 360, vh = this.project.settings?.height || 640;
       const goalX = tx - vw * 0.5, goalY = ty - vh * 0.5;
-      const l = cam.followLerp ?? 0.15;
+      const l = snap ? 1 : (cam.followLerp ?? 0.15);
       this.camera.x = Vec2.lerp(this.camera.x, goalX, l);
       this.camera.y = Vec2.lerp(this.camera.y, goalY, l);
     }
@@ -1961,7 +1952,7 @@ function createNexusRuntime(root) {
             break;
           }
           case 'PlaySound':
-            this.playGameSound(p.preset || 'coin', Number(p.volume ?? 0.7));
+            if (p.preset !== '') this.playGameSound(p.preset || 'coin', Number(p.volume ?? 0.7));
             follow('out'); break;
           case 'SetText': {
             const t = targetEnt();
@@ -2039,9 +2030,10 @@ function createNexusRuntime(root) {
       const vw = this.project.settings?.width || 360;
       const vh = this.project.settings?.height || 640;
       const dpr = Math.min(window.devicePixelRatio || 1, this.project.settings?.quality === 'low' ? 1 : 2);
-      if (this.canvas.width !== vw * dpr || this.canvas.height !== vh * dpr) {
-        this.canvas.width = vw * dpr;
-        this.canvas.height = vh * dpr;
+      const width = Math.round(vw*dpr), height = Math.round(vh*dpr);
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
       }
       this.drawCalls = 0;
       ctx.save();
@@ -3243,8 +3235,7 @@ const App = (() => {
     snapToGrid: true,
     sceneCam: { x: 0, y: 0, zoom: 1 },
     graphCam: { x: 0, y: 0, zoom: 1 },
-    undoStack: [],
-    redoStack: [],
+    histories: new Map(),
     logs: [],
     perfHistory: [],
     previewRuntime: null,
@@ -3337,28 +3328,121 @@ const App = (() => {
   }
 
   // --- Undo / Redo ---
-  function pushUndo() {
+  let pendingEdit;
+  const copyHistory = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  const sameHistory = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  const keyedHistory = list => list.every(item => item && typeof item.id === 'string') &&
+    new Set(list.map(item => item.id)).size === list.length;
+
+  function historyScope() {
+    const workspace = document.querySelector('.nav-btn.active')?.dataset.ws || 'home';
+    if (workspace === 'create') return document.getElementById('create-picker').value;
+    if (workspace === 'logic') return pythonMode ? 'python' : 'blocks';
+    return workspace;
+  }
+
+  function historyFor(scope) {
+    if (!state.histories.has(scope)) state.histories.set(scope, {undo:[], redo:[]});
+    return state.histories.get(scope);
+  }
+
+  // Apply only changes made by this action. A later edit on another screen wins
+  // when both actions write the same field.
+  function mergeHistory(current, from, to) {
+    if (sameHistory(from,to)) return current;
+    if (sameHistory(current,from)) return copyHistory(to);
+    if (Array.isArray(current) && Array.isArray(from) && Array.isArray(to)) {
+      if ([current,from,to].every(keyedHistory)) {
+        const fromIds = new Map(from.map(item => [item.id,item]));
+        const toIds = new Map(to.map(item => [item.id,item]));
+        const result = current.map(item => mergeHistory(item,fromIds.get(item.id),toIds.get(item.id))).filter(Boolean);
+        for (const [index,item] of to.entries()) {
+          if (fromIds.has(item.id) || result.some(other => other.id === item.id)) continue;
+          const next = result.findIndex(other => to.slice(index+1).some(candidate => candidate.id === other.id));
+          result.splice(next < 0 ? result.length : next,0,copyHistory(item));
+        }
+        return result;
+      }
+      if (current.length === from.length && from.length === to.length)
+        return current.map((value,index) => mergeHistory(value,from[index],to[index]));
+      return current;
+    }
+    if ([current,from,to].every(value => value && typeof value === 'object' && !Array.isArray(value))) {
+      // Grid dimensions and row-major data must stay consistent as a group.
+      if (Array.isArray(from.tiles) && (from.cols !== to.cols || from.rows !== to.rows)) {
+        if (current.cols !== from.cols || current.rows !== from.rows || !sameHistory(current.tiles,from.tiles)) return current;
+      } else if (Array.isArray(from.tiles) && (current.cols !== from.cols || current.rows !== from.rows)) {
+        return current;
+      }
+      for (const key of new Set([...Object.keys(from),...Object.keys(to)])) {
+        if (['__proto__','constructor','prototype'].includes(key)) continue;
+        const value = mergeHistory(Object.hasOwn(current,key) ? current[key] : undefined,from[key],to[key]);
+        if (value === undefined) delete current[key];
+        else current[key] = value;
+      }
+    }
+    return current;
+  }
+
+  function captureEdit(kind) {
+    return kind === 'pixel' ? JSON.parse(pixelSnapshot()) : copyHistory(state.project);
+  }
+
+  function commitEdit() {
+    if (!pendingEdit) return;
+    const edit = pendingEdit;
+    pendingEdit = null;
+    edit.after = captureEdit(edit.kind);
+    if (sameHistory(edit.before,edit.after)) return;
+    const stack = historyFor(edit.scope);
+    stack.undo.push(edit);
+    if (stack.undo.length > 35) stack.undo.shift();
+    stack.redo.length = 0;
+  }
+
+  function updateHistoryButtons() {
+    const scope = historyScope();
+    const stack = historyFor(scope);
+    const uncommitted = pendingEdit?.scope === scope;
+    document.getElementById('btn-undo').disabled = !stack.undo.length && !uncommitted;
+    document.getElementById('btn-redo').disabled = !stack.redo.length;
+  }
+
+  function pushUndo(kind = 'project') {
     if (!state.project) return;
-    state.undoStack.push(JSON.stringify(state.project));
-    if (state.undoStack.length > 35) state.undoStack.shift();
-    state.redoStack = [];
+    commitEdit();
+    pendingEdit = {scope:historyScope(),kind,before:captureEdit(kind)};
+    updateHistoryButtons();
   }
 
-  function undo() {
-    if (!state.undoStack.length) return toast('Nothing to undo', 'warn');
-    state.redoStack.push(JSON.stringify(state.project));
-    state.project = JSON.parse(state.undoStack.pop());
-    reloadAfterHistory();
-    toast('Undid change');
+  function moveHistory(reversing) {
+    commitEdit();
+    const stack = historyFor(historyScope());
+    const source = reversing ? stack.undo : stack.redo;
+    const destination = reversing ? stack.redo : stack.undo;
+    const edit = source.pop();
+    if (!edit) { updateHistoryButtons(); return; }
+    const current = captureEdit(edit.kind);
+    const next = mergeHistory(copyHistory(current),reversing ? edit.after : edit.before,reversing ? edit.before : edit.after);
+    if (!sameHistory(current,next)) {
+      // Redo exactly what undo was able to change when other screens edited the same data.
+      destination.push({...edit,before:reversing ? copyHistory(next) : current,after:reversing ? current : copyHistory(next)});
+      if (edit.kind === 'pixel') {
+        Object.assign(pxState,next);
+        document.getElementById('px-layer-idx').textContent = pxState.activeLayer+1;
+        document.getElementById('px-size').value = pxState.size;
+        drawPixelEditor();
+      } else {
+        state.project = next;
+        reloadAfterHistory();
+      }
+      toast(reversing ? 'Undid change' : 'Redid change');
+    } else toast('A newer edit already changed this item.', 'warn');
+    updateHistoryButtons();
   }
 
-  function redo() {
-    if (!state.redoStack.length) return toast('Nothing to redo', 'warn');
-    state.undoStack.push(JSON.stringify(state.project));
-    state.project = JSON.parse(state.redoStack.pop());
-    reloadAfterHistory();
-    toast('Redid change');
-  }
+  function undo() { moveHistory(true); }
+  function redo() { moveHistory(false); }
 
   function reloadAfterHistory() {
     if (!state.project.scenes.some(scene => scene.id === state.activeSceneId)) {
@@ -3398,8 +3482,11 @@ const App = (() => {
     state.activeSceneId = proj.activeSceneId || proj.scenes[0]?.id;
     state.selectedEntityId = getActiveScene()?.entities[0]?.id || null;
     state.selectedGraphId = Object.keys(proj.graphs || {})[0] || null;
-    state.undoStack = [];
-    state.redoStack = [];
+    pendingEdit = null;
+    state.histories.clear();
+    initPixelLayers(16);
+    document.getElementById('px-size').value = 16;
+    updateHistoryButtons();
     state.breakpoints.clear();
     state.imgCache.clear();
     preloadEditorAssets();
@@ -3479,6 +3566,7 @@ const App = (() => {
 
   // --- Workspace Switching ---
   function switchWorkspace(ws) {
+    commitEdit();
     document.querySelectorAll('.workspace').forEach(el => el.classList.toggle('active', el.id === 'ws-' + ws));
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.ws === ws));
     if (ws === 'scene') { resizeCanvas(sceneCanvas); drawSceneEditor(); }
@@ -3486,6 +3574,7 @@ const App = (() => {
     if (ws === 'logic') { if (pythonMode) renderPythonEditor(); else { resizeCanvas(graphCanvas); refreshGraphSelector(); drawGraphEditor(); } }
     if (ws === 'create') { resizeCanvas(pxCanvas); drawPixelEditor(); refreshTilemapEditor(); refreshAnimEditor(); refreshUIBuilder(); refreshAssetsPanel(); }
     if (ws === 'debug') { refreshGlobalVars(); refreshProfilerStats(); }
+    updateHistoryButtons();
   }
 
   function refreshAll() {
@@ -3623,7 +3712,7 @@ const App = (() => {
       ['Copy', () => { state.clipboardEntity = JSON.parse(JSON.stringify(e)); closeModal(); toast('Copied ' + e.name); }],
       [e.visible ? 'Hide' : 'Show', () => { pushUndo(); e.visible = !e.visible; closeModal(); refreshHierarchy(); drawSceneEditor(); }],
       [e.locked ? 'Unlock' : 'Lock', () => { pushUndo(); e.locked = !e.locked; closeModal(); refreshHierarchy(); }],
-      ['Save Prefab', () => { const pid = 'pf_' + Date.now(); state.project.prefabs[pid] = { id: pid, name: e.name, entityTemplate: JSON.parse(JSON.stringify(e)) }; closeModal(); toast('Saved prefab: ' + e.name, 'ok'); }],
+      ['Save Prefab', () => { pushUndo(); const pid = 'pf_' + Date.now(); state.project.prefabs[pid] = { id: pid, name: e.name, entityTemplate: JSON.parse(JSON.stringify(e)) }; closeModal(); toast('Saved prefab: ' + e.name, 'ok'); }],
       ['Layer +1', () => { pushUndo(); e.layer = (e.layer || 0) + 1; closeModal(); drawSceneEditor(); }],
       ['Delete', async () => { closeModal(); if (await confirmAction('Delete Object', `Remove ${e.name}?`)) { pushUndo(); sc.entities = sc.entities.filter(x => x.id !== e.id); if (state.selectedEntityId === e.id) state.selectedEntityId = null; refreshHierarchy(); drawSceneEditor(); } }]
     ];
@@ -4587,8 +4676,6 @@ const App = (() => {
     activeLayer: 0,
     tool: 'pencil',
     color: '#38bdf8',
-    undo: [],
-    redo: [],
     shapeStart: null,
     palette: ['#000000','#ffffff','#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#78350f','#64748b']
   };
@@ -4605,20 +4692,7 @@ const App = (() => {
     return JSON.stringify({size:pxState.size,layers:pxState.layers,activeLayer:pxState.activeLayer});
   }
 
-  function savePixelHistory() {
-    pxState.undo.push(pixelSnapshot());
-    if (pxState.undo.length > 25) pxState.undo.shift();
-    pxState.redo = [];
-  }
-
-  function restorePixelHistory(from,to) {
-    if (!from.length) return;
-    to.push(pixelSnapshot());
-    Object.assign(pxState,JSON.parse(from.pop()));
-    document.getElementById('px-layer-idx').textContent = pxState.activeLayer+1;
-    document.getElementById('px-size').value = pxState.size;
-    drawPixelEditor();
-  }
+  function savePixelHistory() { pushUndo('pixel'); }
 
   (function buildPxPalette() {
     const pal = document.getElementById('px-palette');
@@ -4788,7 +4862,7 @@ const App = (() => {
 
   // --- Tilemap Editor ---
   const tmCanvas = document.getElementById('tm-canvas');
-  const tmState = { tool: 'pencil', selectedTile: 1, zoom: 1 };
+  const tmState = { tool: 'pencil', selectedTile: 1, zoom: 1, left: 0, top: 0 };
   function resizeTilemap(map, cols, rows, tileSize) {
     const tiles = new Array(cols * rows).fill(0);
     for (let row = 0; row < Math.min(rows, map.rows); row++) {
@@ -4825,13 +4899,27 @@ const App = (() => {
   }
 
   function tilemapLayout(map) {
-    const wrap = tmCanvas.parentElement;
-    const width = wrap.clientWidth;
-    const height = wrap.clientHeight;
-    const base = Math.max(1, Math.min((width - 20) / map.cols, (height - 20) / map.rows));
-    const cell = Math.min(64, base * tmState.zoom);
-    return {cell, ox: Math.max(10, (width - map.cols * cell) / 2),
-      oy: Math.max(10, (height - map.rows * cell) / 2)};
+    const {clientWidth:width,clientHeight:height} = tmCanvas.parentElement;
+    const base = Math.max(0.25,Math.min((width-20)/map.cols,(height-20)/map.rows));
+    const cell = Math.min(96,base*tmState.zoom);
+    const mapWidth = map.cols*cell, mapHeight = map.rows*cell;
+    const maxLeft = Math.max(0,mapWidth+20-width), maxTop = Math.max(0,mapHeight+20-height);
+    tmState.left = Math.max(0,Math.min(maxLeft,tmState.left));
+    tmState.top = Math.max(0,Math.min(maxTop,tmState.top));
+    return {cell,width,height,ox:Math.max(10,(width-mapWidth)/2)-tmState.left,
+      oy:Math.max(10,(height-mapHeight)/2)-tmState.top};
+  }
+
+  function zoomTilemap(factor) {
+    const map = getActiveTilemapEntity()?.components.Tilemap;
+    if (!map) return;
+    const before = tilemapLayout(map);
+    const left = tmState.left, top = tmState.top;
+    tmState.zoom = Math.max(1,Math.min(96,tmState.zoom*factor));
+    const after = tilemapLayout(map);
+    tmState.left = Math.min(left,tmState.left) + ((before.width/2-before.ox)/before.cell)*after.cell+after.ox-after.width/2;
+    tmState.top = Math.min(top,tmState.top) + ((before.height/2-before.oy)/before.cell)*after.cell+after.oy-after.height/2;
+    drawTilemapEditor();
   }
 
   function getActiveTilemapEntity() {
@@ -4845,6 +4933,7 @@ const App = (() => {
     selector.replaceChildren(...layers.map(entity => new Option(entity.name,entity.id)));
     selector.value = getActiveTilemapEntity()?.id || '';
     selector.disabled = !layers.length;
+    document.getElementById('tm-delete').disabled = !layers.length;
     const pal = document.getElementById('tm-palette');
     pal.innerHTML = '';
     const labels = ['Empty','Grass','Brick','Crate','Spike','Metal','Neon','Dirt'];
@@ -4862,13 +4951,7 @@ const App = (() => {
   function drawTilemapEditor() {
     const wrap = tmCanvas.parentElement;
     if (!wrap.clientWidth || !wrap.clientHeight) return;
-    const map = getActiveTilemapEntity()?.components.Tilemap;
-    const size = map ? tilemapLayout(map).cell : 0;
-    tmCanvas.style.width = Math.max(wrap.clientWidth, 20 + size * (map?.cols || 0)) + 'px';
-    tmCanvas.style.height = Math.max(wrap.clientHeight, 20 + size * (map?.rows || 0)) + 'px';
-    const dprLimit = Math.min(window.devicePixelRatio || 1, 2, 4096 / Math.max(tmCanvas.clientWidth,tmCanvas.clientHeight));
-    const width = Math.floor(tmCanvas.clientWidth * dprLimit), height = Math.floor(tmCanvas.clientHeight * dprLimit);
-    if (tmCanvas.width !== width || tmCanvas.height !== height) { tmCanvas.width = width; tmCanvas.height = height; }
+    resizeCanvas(tmCanvas);
     const ctx = tmCanvas.getContext('2d');
     const r = tmCanvas.getBoundingClientRect();
     if (!r.width || !r.height) return;
@@ -4882,20 +4965,25 @@ const App = (() => {
       ctx.restore(); return;
     }
     const tm = ent.components.Tilemap;
-    const {cell, ox, oy} = tilemapLayout(tm);
+    const {cell,ox,oy,width,height} = tilemapLayout(tm);
     const img = state.imgCache.get(tm.assetId);
     const tpr = tm.tilesPerRow || 4;
-
-    for (let row = 0; row < tm.rows; row++) {
-      for (let col = 0; col < tm.cols; col++) {
-        const tid = tm.tiles[row * tm.cols + col] || 0;
-        const x = ox + col * cell, y = oy + row * cell;
-        if (tid > 0 && img && img.complete && img.naturalWidth > 0) {
-          const px = img.naturalWidth / tpr;
-          ctx.drawImage(img, (tid % tpr) * px, Math.floor(tid / tpr) * px, px, px, x, y, cell, cell);
+    const firstRow = Math.max(0,Math.floor(-oy/cell)), lastRow = Math.min(tm.rows,Math.ceil((height-oy)/cell));
+    const firstCol = Math.max(0,Math.floor(-ox/cell)), lastCol = Math.min(tm.cols,Math.ceil((width-ox)/cell));
+    ctx.imageSmoothingEnabled = false;
+    for (let row = firstRow; row < lastRow; row++) {
+      for (let col = firstCol; col < lastCol; col++) {
+        const tid = tm.tiles[row*tm.cols+col] || 0;
+        const x = ox+col*cell, y = oy+row*cell;
+        if (tid && img?.complete && img.naturalWidth) {
+          const px = img.naturalWidth/tpr;
+          ctx.drawImage(img,(tid%tpr)*px,Math.floor(tid/tpr)*px,px,px,x,y,cell,cell);
+        } else if (tid) {
+          ctx.fillStyle = ['#3e9461','#8397ab','#c77925','#d95962'][tid%4];
+          ctx.fillRect(x,y,cell,cell);
         }
         ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-        ctx.strokeRect(x, y, cell, cell);
+        ctx.strokeRect(x,y,cell,cell);
       }
     }
     ctx.restore();
@@ -4919,9 +5007,8 @@ const App = (() => {
       e.preventDefault();
       if (tmState.tool === 'pan') {
         if (pointer !== null) return;
-        const wrap = tmCanvas.parentElement;
         pointer = e.pointerId;
-        pan = {x: e.clientX, y: e.clientY, left: wrap.scrollLeft, top: wrap.scrollTop};
+        pan = {x:e.clientX,y:e.clientY,left:tmState.left,top:tmState.top};
         tmCanvas.setPointerCapture(pointer);
         return;
       }
@@ -4950,9 +5037,9 @@ const App = (() => {
     tmCanvas.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pointer) return;
       if (pan) {
-        const wrap = tmCanvas.parentElement;
-        wrap.scrollLeft = pan.left - (e.clientX - pan.x);
-        wrap.scrollTop = pan.top - (e.clientY - pan.y);
+        tmState.left = pan.left - (e.clientX-pan.x);
+        tmState.top = pan.top - (e.clientY-pan.y);
+        drawTilemapEditor();
         return;
       }
       if (!painting || tmState.tool === 'rect' || tmState.tool === 'line') return;
@@ -5177,6 +5264,33 @@ const App = (() => {
         sc.entities.push(ne); state.selectedEntityId = ne.id;
         switchWorkspace('scene'); toast('Added ' + a.name + ' to scene', 'ok');
       };
+      const remove = document.createElement('button');
+      remove.className = 'btn btn-sm btn-err';
+      remove.textContent = 'Delete';
+      remove.setAttribute('aria-label','Delete '+a.name);
+      remove.style.cssText = 'width:100%;margin-top:5px';
+      remove.onclick = async () => {
+        const project = state.project;
+        const entities = [...project.scenes.flatMap(scene => scene.entities),
+          ...Object.values(project.prefabs || {}).map(prefab => prefab.entityTemplate)];
+        const components = entities.flatMap(entity => Object.values(entity?.components || {}));
+        const linked = components.filter(component => component && (component.assetId === a.id || component.preset === a.id));
+        const sounds = Object.values(project.graphs || {}).flatMap(graph => graph.nodes || [])
+          .filter(node => node.type === 'PlaySound' && node.params?.preset === a.id);
+        const used = linked.length + sounds.length;
+        const note = used ? ' This clears '+used+' direct reference'+(used === 1 ? '.' : 's.') : '';
+        if (!await confirmAction('Delete asset','Remove “'+a.name+'” from this project?'+note) || project !== state.project) return;
+        pushUndo();
+        for (const component of linked) {
+          if (component.assetId === a.id) component.assetId = '';
+          if (component.preset === a.id) component.preset = '';
+        }
+        for (const node of sounds) node.params.preset = '';
+        delete project.assets[a.id];
+        state.imgCache.delete(a.id);
+        refreshAll();
+      };
+      card.appendChild(remove);
       card.appendChild(addB);
       grid.appendChild(card);
     }
@@ -5402,15 +5516,12 @@ const App = (() => {
         catch (_) { threw = true; }
         assert(threw, 'Validator must reject malformed / dangerous JSON');
       }],
-      ['Undo / Redo Stack Consistency', () => {
-        const prev = state.project.name;
-        pushUndo();
-        state.project.name = 'Mutated';
-        undo();
-        assert(state.project.name === prev, 'Undo did not restore name');
-        redo();
-        assert(state.project.name === 'Mutated', 'Redo did not reapply name');
-        undo();
+      ['History preserves edits made on another screen', () => {
+        const current = {name:'New name',scenes:[{id:'s',value:2}],gravity:100};
+        const before = {name:'Old name',scenes:[{id:'s',value:1}],gravity:100};
+        const after = {name:'New name',scenes:[{id:'s',value:1}],gravity:100};
+        const result = mergeHistory(current,after,before);
+        assert(result.name === 'Old name' && result.scenes[0].value === 2, 'Undo overwrote another screen');
       }],
       ['Standalone HTML Export Generation', () => {
         const html = GameExporter.buildStandaloneHTML(Templates[0].build());
@@ -5554,7 +5665,9 @@ def on_event(event, dt, game):
   }
 
   function setPythonMode(enabled) {
+    commitEdit();
     pythonMode = enabled;
+    updateHistoryButtons();
     document.getElementById('logic-python').classList.toggle('active', enabled);
     document.getElementById('logic-blocks').classList.toggle('active', !enabled);
     document.getElementById('python-panel').hidden = !enabled;
@@ -5679,16 +5792,6 @@ def on_event(event, dt, game):
 
   function bindEvents() {
     bindPythonEditor();
-    const app = document.getElementById('app');
-    const focus = document.getElementById('btn-focus');
-    const exit = document.getElementById('exit-focus');
-    const setFocus = enabled => {
-      app.classList.toggle('focused-workspace', enabled);
-      focus.setAttribute('aria-pressed', String(enabled));
-      exit.hidden = !enabled;
-    };
-    focus.onclick = () => setFocus(true);
-    exit.onclick = () => { setFocus(false); focus.focus(); };
     const hierarchy = document.getElementById('hierarchy-content');
     const toggleHierarchy = document.getElementById('toggle-hierarchy');
     toggleHierarchy.onclick = () => {
@@ -5702,11 +5805,6 @@ def on_event(event, dt, game):
     ]) {
       document.getElementById(button).onclick = () => showControls(title, document.getElementById(controls));
     }
-    document.getElementById('prev-focus').onclick = event => {
-      const hidden = document.getElementById('preview-overlay').classList.toggle('preview-focused');
-      event.currentTarget.setAttribute('aria-pressed', String(hidden));
-      event.currentTarget.setAttribute('aria-label', hidden ? 'Show preview controls' : 'Hide preview controls');
-    };
     document.addEventListener('pointerdown', event => {
       if (event.target instanceof HTMLSelectElement && !event.target.multiple && !event.target.closest('#modal-body')) event.preventDefault();
     });
@@ -5726,7 +5824,6 @@ def on_event(event, dt, game):
     window.nexusHandleBack = () => {
       if (document.getElementById('modal-backdrop').classList.contains('open')) { closeModal(); return true; }
       if (document.getElementById('preview-overlay').classList.contains('open')) { stopPreview(); return true; }
-      if (app.classList.contains('focused-workspace')) { setFocus(false); return true; }
       if (document.querySelector('.nav-btn.active')?.dataset.ws !== 'home') { switchWorkspace('home'); return true; }
       return false;
     };
@@ -5734,6 +5831,16 @@ def on_event(event, dt, game):
     document.getElementById('modal-close').onclick = closeModal;
     document.getElementById('btn-undo').onclick = undo;
     document.getElementById('btn-redo').onclick = redo;
+    document.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey ||
+          event.target.closest?.('input, textarea, [contenteditable=true]') ||
+          document.getElementById('preview-overlay').classList.contains('open')) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'z' && key !== 'y') return;
+      event.preventDefault();
+      if (key === 'y' || event.shiftKey) redo();
+      else undo();
+    });
     document.getElementById('btn-save').onclick = () => saveCurrentProject(false);
     document.getElementById('btn-play').onclick = startPreview;
     document.getElementById('prev-step').onclick = () => {
@@ -5793,16 +5900,16 @@ def on_event(event, dt, game):
     `, [{ label: 'Got it', cls: 'btn-primary' }]);
 
     // Settings bindings
-    document.getElementById('set-proj-name').onchange = (e) => { state.project.name = e.target.value; document.getElementById('hdr-title').textContent = e.target.value; };
+    document.getElementById('set-proj-name').onchange = (e) => { pushUndo(); state.project.name = e.target.value; document.getElementById('hdr-title').textContent = e.target.value; };
     document.getElementById('set-active-scene').onchange = (e) => { state.activeSceneId = e.target.value; refreshAll(); };
     for (const [id, key] of [['set-start-scene','startSceneId'], ['set-end-scene','endSceneId']]) {
       document.getElementById(id).onchange = event => { pushUndo(); state.project.settings[key] = event.target.value; };
     }
-    document.getElementById('set-vp-w').onchange = (e) => { state.project.settings.width = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
-    document.getElementById('set-vp-h').onchange = (e) => { state.project.settings.height = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
-    document.getElementById('set-grav-y').onchange = (e) => { state.project.settings.gravityY = Number(e.target.value); };
-    document.getElementById('set-quality').onchange = (e) => { state.project.settings.quality = e.target.value; };
-    document.getElementById('set-pixel-perfect').onchange = (e) => { state.project.settings.pixelPerfect = e.target.checked; };
+    document.getElementById('set-vp-w').onchange = (e) => { pushUndo(); state.project.settings.width = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
+    document.getElementById('set-vp-h').onchange = (e) => { pushUndo(); state.project.settings.height = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
+    document.getElementById('set-grav-y').onchange = (e) => { pushUndo(); state.project.settings.gravityY = Number(e.target.value); };
+    document.getElementById('set-quality').onchange = (e) => { pushUndo(); state.project.settings.quality = e.target.value; };
+    document.getElementById('set-pixel-perfect').onchange = (e) => { pushUndo(); state.project.settings.pixelPerfect = e.target.checked; };
     document.getElementById('set-autosave').onchange = (e) => { state.autosave = e.target.checked; };
 
     document.getElementById('batch-objects').onclick = () => {
@@ -5967,10 +6074,13 @@ def on_event(event, dt, game):
 
     // Create Subtabs
     document.getElementById('create-picker').onchange = event => {
+      commitEdit();
       document.querySelector(`#create-subtabs [data-sub="${event.target.value}"]`)?.click();
     };
     document.querySelectorAll('#create-subtabs .subtab').forEach(b => b.onclick = () => {
+      commitEdit();
       document.getElementById('create-picker').value = b.dataset.sub;
+      updateHistoryButtons();
       document.querySelectorAll('#create-subtabs .subtab').forEach(x => x.classList.toggle('active', x === b));
       document.querySelectorAll('#ws-create .subpanel').forEach(p => p.classList.toggle('active', p.id === 'sub-' + b.dataset.sub));
       if (b.dataset.sub === 'pixel') drawPixelEditor();
@@ -5984,8 +6094,6 @@ def on_event(event, dt, game):
     document.getElementById('px-tool').onchange = event => { pxState.tool = event.target.value; };
     document.getElementById('px-color').oninput = (e) => { pxState.color = e.target.value; };
     document.getElementById('px-size').onchange = (e) => { savePixelHistory(); initPixelLayers(Number(e.target.value)); drawPixelEditor(); };
-    document.getElementById('px-undo').onclick = () => restorePixelHistory(pxState.undo,pxState.redo);
-    document.getElementById('px-redo').onclick = () => restorePixelHistory(pxState.redo,pxState.undo);
     document.getElementById('px-clear').onclick = () => { savePixelHistory(); pxState.layers[pxState.activeLayer].fill(null); drawPixelEditor(); };
     document.getElementById('px-layer-add').onclick = () => { savePixelHistory(); pxState.layers.push(new Array(pxState.size * pxState.size).fill(null)); pxState.activeLayer = pxState.layers.length - 1; document.getElementById('px-layer-idx').textContent = pxState.activeLayer + 1; };
     document.getElementById('px-layer-toggle').onclick = () => { pxState.activeLayer = (pxState.activeLayer + 1) % pxState.layers.length; document.getElementById('px-layer-idx').textContent = pxState.activeLayer + 1; };
@@ -6040,18 +6148,34 @@ def on_event(event, dt, game):
 
     // Tilemap Buttons
     document.getElementById('tm-size').onclick = () => openTilemapSettings();
-    document.getElementById('tm-undo').onclick = undo;
-    document.getElementById('tm-redo').onclick = redo;
-    document.getElementById('tm-zoom-in').onclick = () => { tmState.zoom = Math.min(12, tmState.zoom * 1.5); drawTilemapEditor(); };
-    document.getElementById('tm-zoom-out').onclick = () => { tmState.zoom = Math.max(1, tmState.zoom / 1.5); drawTilemapEditor(); };
-    document.getElementById('tm-tool').onchange = event => {
-      tmState.tool = event.target.value;
-      tmCanvas.parentElement.classList.toggle('is-pan', tmState.tool === 'pan');
+    document.getElementById('tm-zoom-in').onclick = () => zoomTilemap(1.6);
+    document.getElementById('tm-zoom-out').onclick = () => zoomTilemap(1/1.6);
+    const panToggle = document.getElementById('tm-pan');
+    const setTileTool = tool => {
+      tmState.tool = tool;
+      panToggle.classList.toggle('active',tool === 'pan');
+      panToggle.setAttribute('aria-pressed',String(tool === 'pan'));
+      tmCanvas.parentElement.classList.toggle('is-pan',tool === 'pan');
     };
+    document.getElementById('tm-tool').onchange = event => setTileTool(event.target.value);
+    panToggle.onclick = () => setTileTool(tmState.tool === 'pan' ? document.getElementById('tm-tool').value : 'pan');
     document.getElementById('tm-zoom-fit').onclick = () => {
       tmState.zoom = 1;
-      tmCanvas.parentElement.scrollLeft = tmCanvas.parentElement.scrollTop = 0;
+      tmState.left = tmState.top = 0;
       drawTilemapEditor();
+    };
+    document.getElementById('tm-delete').onclick = async () => {
+      const scene = getActiveScene(), entity = getActiveTilemapEntity();
+      if (!entity) { closeModal(); return toast('No tilemap selected.', 'warn'); }
+      if (!await confirmAction('Delete tilemap', 'Remove “'+entity.name+'” and its tiles from this scene?')) return;
+      if (getActiveScene() !== scene) return;
+      pushUndo();
+      delete entity.components.Tilemap;
+      if (Object.keys(entity.components).every(key => key === 'Transform')) {
+        scene.entities = scene.entities.filter(item => item.id !== entity.id);
+        for (const child of scene.entities) if (child.parentId === entity.id) child.parentId = null;
+      }
+      refreshAll();
     };
     const addTilemap = (name, map) => {
       const scene = getActiveScene();
@@ -6128,8 +6252,8 @@ def on_event(event, dt, game):
       });
       showModal('Add Property Track', box, [{ label: 'Cancel' }]);
     };
-    document.getElementById('anim-dur').onchange = (e) => { const c = state.project.animations[animState.selectedClipId]; if (c) c.duration = Math.max(0.1, Number(e.target.value)); };
-    document.getElementById('anim-loop').onchange = (e) => { const c = state.project.animations[animState.selectedClipId]; if (c) { c.loop = e.target.value === '1'; c.pingPong = e.target.value === '2'; } };
+    document.getElementById('anim-dur').onchange = (e) => { const c = state.project.animations[animState.selectedClipId]; if (c) { pushUndo(); c.duration = Math.max(0.1, Number(e.target.value)); } };
+    document.getElementById('anim-loop').onchange = (e) => { const c = state.project.animations[animState.selectedClipId]; if (c) { pushUndo(); c.loop = e.target.value === '1'; c.pingPong = e.target.value === '2'; } };
     document.getElementById('anim-time').oninput = (e) => { animState.time = Number(e.target.value); drawAnimPreview(); };
     document.getElementById('anim-play-btn').onclick = () => {
       animState.playing = !animState.playing;
@@ -6169,6 +6293,7 @@ def on_event(event, dt, game):
       const name = await promptInput('Save Synth Sound', 'Sound Name:', 'SFX ' + (Object.keys(state.project.assets).length + 1));
       if (!name) return;
       const id = 'sfx_' + Date.now();
+      pushUndo();
       state.project.assets[id] = { id, name, type: 'audio', synth: readSynth() };
       refreshAssetsPanel(); toast('Saved sound asset', 'ok');
     };

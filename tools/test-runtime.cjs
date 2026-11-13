@@ -54,3 +54,14 @@ const resize=file.slice(file.indexOf('  function resizeTilemap('),file.indexOf('
 const tile=vm.runInContext(resize+'; const tile={cols:2,rows:2,tiles:[1,2,3,4]};resizeTilemap(tile,3,3,16);JSON.stringify(tile)',c);
 assert.deepEqual(JSON.parse(tile),{cols:3,rows:3,tileSize:16,tiles:[1,2,0,3,4,0,0,0,0]});
 console.log('Campaign start/end, save/load, Python messages, and tilemap resize passed.');
+
+const landing = vm.runInContext(`
+  (() => {
+    const demo = new NexusRuntime.GameRuntime(Templates[0].build(), null);
+    demo.init();
+    for (let frame = 0; frame < 600; frame++) demo.step(1 / 60);
+    const player = demo.entityMap.get('e_plr');
+    return player._grounded && player.components.Transform.y === 529;
+  })()
+`, c);
+assert.equal(landing, true, 'Player should stay on the floor across a tile seam');

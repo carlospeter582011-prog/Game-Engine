@@ -8,11 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayOutputStream
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
 import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -46,7 +42,6 @@ class MainActivity : FlutterActivity() {
     private var picker: ValueCallback<Array<Uri>>? = null
     private var channel: MethodChannel? = null
     private var webView: WebView? = null
-    private var immersive = false
     private var buildingApk = false
 
     private data class PendingDocument(val bytes: ByteArray, val result: MethodChannel.Result)
@@ -108,11 +103,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "buildApk" -> buildApk(call, result)
-                "fullscreen" -> {
-                    immersive = !immersive
-                    applyFullscreen()
-                    result.success(null)
-                }
                 "exit" -> { finish(); result.success(null) }
                 "webBack" -> {
                     val view = webView
@@ -141,16 +131,6 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        applyFullscreen()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) applyFullscreen()
-    }
-
     override fun onPause() {
         webView?.onPause()
         super.onPause()
@@ -159,23 +139,6 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         webView?.onResume()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun applyFullscreen() {
-        if (Build.VERSION.SDK_INT >= 30) {
-            val controller = window.insetsController ?: return
-            controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (immersive) controller.hide(WindowInsets.Type.systemBars())
-            else controller.show(WindowInsets.Type.systemBars())
-        } else {
-            window.decorView.systemUiVisibility = if (immersive) {
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            } else 0
-        }
-        channel?.invokeMethod("immersive", immersive)
     }
 
     @Suppress("SetJavaScriptEnabled")
