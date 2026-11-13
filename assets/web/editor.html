@@ -1731,7 +1731,43 @@ function createNexusRuntime(root) {
             col < 0 || col >= map.cols || row < 0 || row >= map.rows) return null;
         return {map,index:row*map.cols+col};
       };
+      const navigation = (name,col,row,endCol,endRow) => {
+        const start = tile(name,col,row), end = tile(name,endCol,endRow);
+        if (!start || !end) return null;
+        const map = start.map;
+        const solid = new Set(map.collisionIds || [1,2,3]);
+        if (solid.has(map.tiles[end.index] || 0)) return null;
+        const path = findGridPath(map.cols,map.rows,(x,y) => solid.has(map.tiles[y*map.cols+x] || 0),col,row,endCol,endRow,2000);
+        return path.length || start.index === end.index ? path : null;
+      };
       return {
+        find_grid_path: navigation,
+        grid_distance: (...args) => navigation(...args)?.length ?? -1,
+        move_to_cell: (object,mapName,col,row) => {
+          const target = find(object);
+          const layer = find(mapName);
+          const cell = tile(mapName,col,row);
+          if (!target?.components.Transform || !cell || (cell.map.collisionIds || [1,2,3]).includes(cell.map.tiles[cell.index] || 0)) return false;
+          this.updateTransforms();
+          const size = cell.map.tileSize || 32;
+          const point = Mat2D.transformPoint(layer._world.mat,(col+0.5)*size,(row+0.5)*size);
+          const parent = this.entityMap.get(target.parentId);
+          const inverse = parent && Mat2D.invert(parent._world.mat);
+          const local = inverse ? Mat2D.transformPoint(inverse,point.x,point.y) : point;
+          Object.assign(target.components.Transform,{x:local.x,y:local.y});
+          return true;
+        },
+        can_see: (object,distance = 250) => {
+          const target = find(object);
+          if (!target || target === owner || !Number.isFinite(distance) || distance <= 0) return false;
+          this.updateTransforms();
+          const dx = target._world.x-owner._world.x, dy = target._world.y-owner._world.y;
+          const range = Math.hypot(dx,dy);
+          if (range > distance) return false;
+          if (range === 0) return true;
+          const hit = this.raycast(owner._world.x,owner._world.y,dx,dy,range,255,owner.id);
+          return !hit || hit.entity.id === target.id;
+        },
         find_object: name => find(name)?.id ?? null,
         read_property: (name,component,field) => property(name,component,field)?.[field] ?? null,
         write_property: (name,component,field,value) => {
@@ -1881,7 +1917,8 @@ function createNexusRuntime(root) {
     }
 
     _execFromNode(graph, startNode, selfEnt, payload, visitedSteps = { count: 0, max: 250 }, depth = 0) {
-      const command = (name,args) => this.gameCommands(selfEnt,payload)[name](...args);
+        let commands;
+      const command = (name,args) => (commands ||= this.gameCommands(selfEnt,payload))[name](...args);
       const getVar = (scope, key) => this.variableStore(selfEnt, scope)[key];
       const setVar = (scope, key, value) => {
         if (!['__proto__','constructor','prototype'].includes(key)) this.variableStore(selfEnt, scope)[key] = value;
@@ -1910,6 +1947,8 @@ function createNexusRuntime(root) {
           case 'ReadProperty': return command('read_property',[input('targetName'),p.component,p.property]);
           case 'ReadTile': return command('read_tile',[input('targetName'),input('col'),input('row')]);
           case 'CastRay': return command('cast_ray',['x','y','dx','dy','distance'].map(input))?.id ?? null;
+          case 'GridDistance': return command('grid_distance',['mapName','col','row','endCol','endRow'].map(input));
+          case 'CanSee': return command('can_see',[input('targetName'),input('distance')]);
           case 'DataValue': return command('data_value',[p.table,p.row,p.field]);
           case 'ActionHeld': return command('action_held',[p.eventName]);
           case 'SeededRandom': return command('seeded_random',[input('seed')]);
@@ -2001,9 +2040,10 @@ function createNexusRuntime(root) {
               this._execFromNode(called,event,selfEnt,{...payload,value:evalDataInput(node,'value',p.value)},visitedSteps,depth+1);
             follow(); break;
           }
-          case 'WriteProperty': case 'WriteTile': case 'CameraZoom': case 'SetState':
+          case 'MoveToCell': case 'WriteProperty': case 'WriteTile': case 'CameraZoom': case 'SetState':
           case 'SetAudioVolume': case 'AdvanceTurn': case 'SaveWorld': case 'LoadWorld': {
             const specs = {
+              MoveToCell:['move_to_cell','targetName','mapName','col','row'],
               WriteProperty:['write_property','targetName','component','property','value'],
               WriteTile:['write_tile','targetName','col','row','tileId'],CameraZoom:['camera_zoom','zoom'],
               SetState:['set_state','targetName','state'],SetAudioVolume:['set_audio_volume','channel','volume'],
@@ -2795,6 +2835,7 @@ const NodeCatalog = [
     params:type === 'OnCall' ? {} : {eventName:''}})),
   ...[
     ['CallGraph',{graphId:'',value:''}],['WriteProperty',{targetName:'',component:'Transform',property:'x',value:0}],
+    ['MoveToCell',{targetName:'',mapName:'',col:0,row:0}],
     ['WriteTile',{targetName:'',col:0,row:0,tileId:1}],['CameraZoom',{zoom:1}],
     ['SetState',{targetName:'',state:'attack'}],['SetAudioVolume',{channel:'effects',volume:0.7}],
     ['AdvanceTurn',{players:2}],['SaveWorld',{slot:'world'}],['LoadWorld',{slot:'world'}]
@@ -2804,7 +2845,8 @@ const NodeCatalog = [
     ['FindObject',{targetName:''}],['ReadProperty',{targetName:'',component:'Transform',property:'x'}],
     ['ReadTile',{targetName:'',col:0,row:0}],['CastRay',{x:0,y:0,dx:1,dy:0,distance:100}],
     ['DataValue',{table:'items',row:'potion',field:'price'}],['ActionHeld',{eventName:''}],
-    ['SeededRandom',{seed:1}]
+    ['SeededRandom',{seed:1}],['GridDistance',{mapName:'',col:0,row:0,endCol:1,endRow:0}],
+    ['CanSee',{targetName:'',distance:250}]
   ].map(([type,params]) => ({type,params,cat:'Game data',color:'#0369a1',in:Object.keys(params).filter(key => typeof params[key] === 'number'),out:['val']})),
   // Events
   ...[
@@ -4629,7 +4671,20 @@ const App = (() => {
     ListLength:'Returns the number of items in the list.',
     Literal:'Provides a constant. Accepts JSON numbers, strings, booleans, lists and objects.',
     JoinText:'Combines two values as text.', KeyHeld:'Returns whether a key or corresponding movement control is held.',
-    EventValue:'Outputs the current message’s payload.', Log:'Writes a value to the debug console.',
+    EventValue:'Outputs the value sent by a message, custom block call or state change.',
+    OnCall:'Starts when another script runs this custom block. Read its argument with Read event value.',
+    OnAction:'Starts when a named keyboard, touch or gamepad action is first pressed.',
+    OnState:'Starts when this object enters the selected state.',
+    FindObject:'Returns the ID of the selected object. Use Self to look up the object running this script.',
+    WriteProperty:'Changes an editable property on the target object. Match the input value to the property’s type.',
+    ReadProperty:'Returns a value such as a position, speed, opacity or health from the target object.',
+    CastRay:'Looks in a direction and returns the ID of the first object with a collider that it hits.',
+    SaveWorld:'Stores the active scene and global variables in a local slot. Use the Success or Failure branch.',
+    LoadWorld:'Restores the active scene and global variables from a local slot at the end of this frame.',
+    GridDistance:'Counts the shortest number of horizontal or vertical steps to a cell. Solid tiles block the route. A result of −1 means there is no route.',
+    MoveToCell:'Moves the object to the center of a walkable tile cell. Rows and columns start at zero.',
+    CanSee:'Checks range and whether a collider blocks a straight line between two objects.',
+    Log:'Writes a value to the debug console.',
     PlaySound:'Plays a built-in preset or imported audio asset.',
     SetText:'Updates a UI label or TextRenderer. A connected Value overrides the default.',
     ShowElement:'Shows the selected UI element or object.', HideElement:'Hides the selected UI element or object.',
@@ -4685,7 +4740,12 @@ const App = (() => {
       return [['','Choose action'],...simple(...Object.keys(state.project.inputActions || {}))];
     if (key === 'scope') return [['global','Global · whole game'],['scene','Scene · current level'],['object','Object · this object']];
     if (key === 'target') return [['self','Self · this object'],['other','Other · event object']];
-    if (key === 'targetName') return [['','Use Self / Other'], ...(getActiveScene()?.entities || []).map(entity => [entity.name,entity.name])];
+    if (key === 'mapName') return [['','Choose tilemap'],...labels((getActiveScene()?.entities || []).filter(entity => entity.components.Tilemap))];
+    if (key === 'targetName') {
+      const shared = ['FindObject','ReadProperty','WriteProperty','ReadTile','WriteTile','MoveToCell','SetState','CanSee'].includes(type);
+      return [['',shared ? 'Self · this object' : 'Use Self / Other'],...(shared ? [['other','Other · event object']] : []),
+        ...(getActiveScene()?.entities || []).map(entity => [shared ? entity.id : entity.name,entity.name])];
+    }
     if (key === 'sceneName') return labels(state.project.scenes);
     if (key === 'prefabId') return [['','Choose prefab'],...labels(Object.values(state.project.prefabs || {}))];
     if (key === 'clipId') return [['','Use current clip'],...labels(Object.values(state.project.animations || {}))];
@@ -4729,10 +4789,12 @@ const App = (() => {
     GetVariable:'Read variable',GetPosition:'Read position',Broadcast:'Send message',ChangeScene:'Open scene',
     CallGraph:'Run custom block',OnCall:'When called as a custom block',FindObject:'Find object by name',
     ReadProperty:'Read object property',WriteProperty:'Set object property',ReadTile:'Read tile',WriteTile:'Paint tile',
+    Literal:'Use a fixed value',EventValue:'Read event value',MathOp:'Calculate a number',Compare:'Compare values',
+    GetVariable:'Read variable',If:'If condition is true',IfElse:'If / else',Repeat:'Repeat several times',Wait:'Wait for seconds',
     CastRay:'Cast a ray',CameraZoom:'Set camera zoom',ActionHeld:'Is action held?',SeededRandom:'Random from seed',
     OnAction:'When action starts',SetState:'Switch object state',OnState:'When state starts',
     DataValue:'Read data field',SetAudioVolume:'Set audio volume',AdvanceTurn:'Pass turn',
-    SaveWorld:'Save world',LoadWorld:'Load world'
+    SaveWorld:'Save world',LoadWorld:'Load world',GridDistance:'Count steps to grid cell',MoveToCell:'Go to grid cell',CanSee:'Can see object'
   };
   const blockName = type => blockNames[type] || String(type).replace(/([a-z0-9])([A-Z])/g,'$1 $2');
   const fieldNames = {eventName:'Message / event',targetName:'Object',target:'Target',scope:'Scope',key:'Variable',
@@ -4784,12 +4846,23 @@ const App = (() => {
         card.append(header);
         const fields = document.createElement('div');
         fields.className = 'inline-inputs';
-        for (const [key,value] of Object.entries({...def.params,...node.params})) {
+        for (const [key,rawValue] of Object.entries({...def.params,...node.params})) {
+          const propertyDefault = node.type === 'WriteProperty' && key === 'value' ?
+            ComponentSchemas[node.params?.component]?.[node.params?.property] : undefined;
+          const value = propertyDefault !== undefined && typeof rawValue !== typeof propertyDefault ? propertyDefault : rawValue;
           const label = document.createElement('label');
           label.textContent = fieldName(key);
+          const dataInput = def.in.includes(key) && key !== 'in';
           const port = edges.find(edge => edge.toNode === node.id && edge.toPort === key && ['val','res'].includes(edge.fromPort));
           if (port) {
-            label.append(add('↳ '+blockName(nodes.get(port.fromNode)?.type || 'Value'),() => setBlockMode('wires')));
+            const source = nodes.get(port.fromNode);
+            label.append(add('↳ '+blockName(source?.type || 'Value'),() => {
+              document.querySelector('[data-block-id="'+CSS.escape(port.fromNode)+'"]')?.scrollIntoView({block:'nearest'});
+            }),add('Disconnect',() => {
+              pushUndo();
+              graph.edges = graph.edges.filter(edge => edge !== port);
+              renderBlockStacks();
+            }));
           } else {
             let input;
             const choices = blockChoices(key,node.type,node.params);
@@ -4816,12 +4889,23 @@ const App = (() => {
               if (dependent[key]) {
                 current.params[dependent[key]] = blockChoices(dependent[key],current.type,current.params)?.[0]?.[0] ?? '';
                 if (key === 'table') current.params.field = '';
+                if (key === 'component' && current.type === 'WriteProperty') current.params.value = ComponentSchemas[current.params.component]?.[current.params.property] ?? 0;
+                renderBlockStacks();
+              } else if (key === 'property' && current.type === 'WriteProperty') {
+                current.params.value = ComponentSchemas[current.params.component]?.[input.value] ?? 0;
                 renderBlockStacks();
               }
             };
             label.append(input);
           }
+          if (dataInput && !port) label.append(add('+ Use a value block',() => openValueLibrary(graph,current,key)));
           fields.append(label);
+        }
+        for (const key of def.in.filter(port => port !== 'in' && !Object.hasOwn(def.params,port) &&
+            !Object.hasOwn(current.params || {},port) && (port !== 'cond' || current.type !== 'Not'))) {
+          const edge = edges.find(item => item.toNode === current.id && item.toPort === key && ['val','res'].includes(item.fromPort));
+          fields.append(add(edge ? fieldName(key)+' · '+blockName(nodes.get(edge.fromNode)?.type || 'Value') :
+            '+ '+fieldName(key)+' value',() => openValueLibrary(graph,current,key)));
         }
         if (fields.childElementCount) card.append(fields);
         container.append(card);
@@ -4862,6 +4946,58 @@ const App = (() => {
   function setBlockMode(mode) {
     wireMode = mode === 'wires';
     setPythonMode(mode === 'python');
+  }
+
+  function openValueLibrary(graph,target,input) {
+    const body = document.createElement('div');
+    const existing = graph.edges.find(edge => edge.toNode === target.id && edge.toPort === input && ['val','res'].includes(edge.fromPort));
+    const definitions = NodeCatalog.filter(def => def.out.some(port => port === 'val' || port === 'res'));
+    const choices = [
+      ...graph.nodes.filter(node => node.id !== target.id && definitions.some(def => def.type === node.type))
+        .map(node => ({node,label:'Use existing · '+blockName(node.type)})),
+      ...definitions.map(def => ({def,label:'Add · '+blockName(def.type)}))
+    ];
+    const search = document.createElement('input');
+    search.className = 'input'; search.placeholder = 'Search value blocks';
+    search.setAttribute('aria-label','Search value blocks');
+    const list = document.createElement('div'); list.className = 'grid-2'; list.style.marginTop = '8px';
+    const render = () => {
+      list.replaceChildren();
+      for (const choice of choices.filter(choice => choice.label.toLowerCase().includes(search.value.trim().toLowerCase()))) {
+        const button = document.createElement('button');
+        button.className = 'btn btn-sm'; button.textContent = choice.label;
+        button.onclick = () => {
+          const def = choice.def || definitions.find(item => item.type === choice.node.type);
+          if (choice.node) {
+            const pending = [target.id], seen = new Set(pending);
+            for (const id of pending) for (const edge of graph.edges) {
+              if (edge.fromNode === id && !seen.has(edge.toNode)) {
+                seen.add(edge.toNode); pending.push(edge.toNode);
+              }
+            }
+            if (seen.has(choice.node.id)) return toast('This connection would create a loop.','warn');
+          }
+          pushUndo();
+          const node = choice.node || {id:'n_'+Date.now()+'_'+graph.nodes.length,type:def.type,
+            x:target.x-245,y:target.y+85,params:JSON.parse(JSON.stringify(def.params))};
+          if (!choice.node) graph.nodes.push(node);
+          if (existing) graph.edges = graph.edges.filter(edge => edge !== existing);
+          graph.edges.push({id:'e_'+Date.now()+'_'+graph.edges.length,fromNode:node.id,
+            fromPort:def.out.find(port => port === 'val' || port === 'res'),toNode:target.id,toPort:input});
+          closeModal(); renderBlockStacks(); drawGraphEditor();
+          document.querySelector('[data-block-id="'+CSS.escape(node.id)+'"]')?.scrollIntoView({block:'nearest'});
+        };
+        list.append(button);
+      }
+      if (!list.childElementCount) list.textContent = 'No matching value blocks.';
+    };
+    search.oninput = render;
+    body.append(search,list); render();
+    const buttons = [{label:'Close'}];
+    if (existing) buttons.push({label:'Disconnect',onClick:() => {
+      pushUndo(); graph.edges = graph.edges.filter(edge => edge !== existing); closeModal(); renderBlockStacks(); drawGraphEditor();
+    }});
+    showModal('Choose value for '+fieldName(input),body,buttons);
   }
 
   function openBlockLibrary(attach = null) {
@@ -6211,7 +6347,7 @@ def on_event(event, dt, game):
     };
     document.getElementById('python-help').onclick = () => {
       const help = document.createElement('div');
-      help.textContent = 'New commands: find_object, read_property, write_property, read_tile, write_tile, cast_ray, camera_zoom, action_held, set_state, data_value, seeded_random, set_audio_volume, advance_turn, save_world, load_world. Call commands as game["command"](...). Game API: game["get_var"](name, scope), set_var(name, value, scope), broadcast(name, value), change_scene(name), end_game("win"), spawn(prefab_id, dx, dy), play_sound(name), set_text(object_name, text), save(slot) and load(slot). Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
+      help.textContent = 'New commands: find_object, read_property, write_property, read_tile, write_tile, cast_ray, camera_zoom, action_held, set_state, data_value, seeded_random, set_audio_volume, advance_turn, save_world, load_world, find_grid_path, grid_distance, move_to_cell, can_see. Call commands as game["command"](...). Game API: game["get_var"](name, scope), set_var(name, value, scope), broadcast(name, value), change_scene(name), end_game("win"), spawn(prefab_id, dx, dy), play_sound(name), set_text(object_name, text), save(slot) and load(slot). Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
       showModal('Python game API', help, [{label:'Close'}]);
     };
     document.getElementById('python-save').onclick = () => {

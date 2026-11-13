@@ -52,10 +52,16 @@ jobs:
           NEXUS_STORE_PASSWORD: ${{ secrets.NEXUS_STORE_PASSWORD }}
           NEXUS_KEY_ALIAS: ${{ secrets.NEXUS_KEY_ALIAS }}
           NEXUS_KEY_PASSWORD: ${{ secrets.NEXUS_KEY_PASSWORD }}
+      - name: Package website for release
+        run: |
+          flutter build web --release --no-web-resources-cdn
+          (cd build/web && zip -qr ../../output/Nexus-Engine-Website.zip .)
       - uses: actions/upload-artifact@v4
         with:
           name: Nexus-Engine-Android
-          path: output/*
+          path: |
+            output/Nexus-Engine.apk
+            output/Nexus-Engine.aab
           if-no-files-found: error
       - name: Publish latest release
         if: github.ref == 'refs/heads/main'
@@ -65,9 +71,9 @@ jobs:
           version="2.1.$GITHUB_RUN_NUMBER"
           tag="v$version"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab --clobber
+            gh release upload "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab output/Nexus-Engine-Website.zip --clobber
             gh release edit "$tag" --latest
           else
-            gh release create "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab \
+            gh release create "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab output/Nexus-Engine-Website.zip \
               --target "$GITHUB_SHA" --title "Nexus Engine $version" --generate-notes --latest
           fi

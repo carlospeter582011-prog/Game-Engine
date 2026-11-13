@@ -49,14 +49,14 @@ On phones, Create uses a workspace picker. Drawing tools stay above the canvas, 
 
 ## Flutter web editor
 
-Open the [Nexus website](https://carlospeter582011-prog.github.io/Game-Engine/) after the website workflow deploys. The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
+Open the [Nexus website](https://carlospeter582011-prog.github.io/Game-Engine/) after the website workflow deploys, or download `Nexus-Engine-Website.zip` from the latest release and serve the extracted files over HTTP. The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
 
-To build the website locally, run `bash tools/fetch-python.sh`, `flutter pub get` and `flutter build web --release`. Serve `build/web` from an HTTP server. The GitHub workflow saves the website build as an Actions artifact and deploys it with GitHub Pages when Pages is configured to use GitHub Actions.
+To build the website locally, run `bash tools/fetch-python.sh`, `flutter pub get` and `flutter build web --release`. Serve `build/web` from an HTTP server. The GitHub workflow saves the website build as an Actions artifact and deploys it with GitHub Pages. For first-time setup, a repository admin selects **Settings → Pages → Source → GitHub Actions** and reruns the website workflow.
 
 ## Visual scripts and game systems
 
-- Use **Logic → Blocks** to add event stacks and change settings directly on the block. Use **Wires** for data connections. Attach the script to a scene object.
+- Use **Logic → Blocks** to add event stacks and change settings directly on the block. Add a value block inside an input or use **Wires** for a graph view. Attach the script to a scene object.
 - Create a reusable script with **When called as a custom block** and invoke it from **Run custom block**. Use **Script packs** to move scripts between projects.
 - Use **Data & input** to edit project records and bind actions to keyboard keys, touch controls and gamepad buttons. The **When an action starts** event fires once per press.
-- Blocks and Python share commands for finding objects, reading and writing component properties and tiles, raycasts, camera zoom, object state, data records, turns and seeded random values. **Save world** stores active scene objects and global variables in a local versioned slot.
+- Blocks and Python share commands for finding objects, reading and writing component properties and tiles, raycasts, camera zoom, object state, data records, turns, grid navigation, line of sight and seeded random values. **Save world** stores active scene objects and global variables in a local versioned slot.
 - In **Create → Tilemap**, zoom with two fingers or the mouse wheel and use **Map** to jump to a region. **Generate terrain** fills the selected layer with a repeatable landscape from a seed.
