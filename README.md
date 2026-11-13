@@ -4,14 +4,11 @@ The Flutter app hosts the Nexus 2D editor offline. The app includes the scene ed
 
 ## Export a game APK
 
-1. Open a project in the editor and choose **Home → Export Android APK**.
-2. Set the app name, unique Android package ID, icon, orientation, version name, and build number. The icon picker accepts common Android image formats and prepares a square PNG.
-3. Create a [fine-grained GitHub token](https://github.com/settings/personal-access-tokens/new) scoped to this repository, with **Contents** and **Actions** read/write permissions. Enter it in the dialog for this build session.
-4. Start the build, then save the APK when it is ready. You can also open the run and download its artifact from GitHub Actions.
+1. Open a project and choose **Home → Export Android APK**.
+2. Set the app name, unique Android package ID, launcher icon, orientation, version name, and build number.
+3. Tap **Build APK** and then **Save APK**. The editor packages the game HTML and assets into a lightweight Android player, signs it on the device, and opens the Android save dialog.
 
-The APK opens the game directly in an immersive Android WebView with the HTML and assets bundled offline. It is an independent app and does not include the editor. The export step needs Internet access. This repository is public and the uploaded HTML and build artifact can be accessible to others. Use a private copy and update the repository setting in `lib/github_build.dart` for private builds. A finished APK only requires Android 7+ and an up-to-date System WebView.
-
-A signing key is optional for installing a first test build. For updates across build runs, configure the same keystore with repository secrets `NEXUS_KEYSTORE_BASE64`, `NEXUS_STORE_PASSWORD`, `NEXUS_KEY_ALIAS`, and `NEXUS_KEY_PASSWORD`. Increment the build number for updates. If signing is unconfigured, the workflows use their runner's debug key and a later build may require uninstalling the earlier version.
+The export works offline. The finished APK opens directly in a full-screen Android WebView on Android 7+. Games run without the editor installed. The editor keeps the signing key in Android Keystore. To update an installed game, export from the same Nexus installation, reuse its package ID, and increase the build number. Clearing the editor's data or switching devices may require uninstalling the old game before installing a new build.
 
 ## Python and blocks
 
@@ -33,4 +30,6 @@ Python 3 scripting is powered by [Skulpt](https://github.com/skulpt/skulpt). Its
 
 ## Local build
 
-Use Flutter 3.50.0, JDK 21, and the Android SDK. Run `bash tools/fetch-python.sh`, `flutter pub get`, and `flutter build apk --release`. The workflow downloads the same pinned Python runtime and verifies the SHA-256 of its bundled files.
+Use Flutter 3.50.0, JDK 21, and the Android SDK. Run `bash tools/fetch-python.sh`, `bash tools/build-player.sh`, `flutter pub get`, and `flutter build apk --release`. The workflow downloads the same pinned Python runtime and verifies the SHA-256 of its bundled files.
+
+GitHub Actions builds the editor and embeds the reusable player template. Its packaging smoke test verifies the signed APK, application ID, version, orientation, custom icon and embedded HTML.

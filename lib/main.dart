@@ -5,9 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'github_build.dart';
-
-const player = bool.fromEnvironment('NEXUS_GAME');
+final packagePattern = RegExp(r'^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$');
 const native = MethodChannel('nexus/native');
 
 void main() => runApp(const NexusApp());
@@ -37,7 +35,7 @@ class NexusScreen extends StatefulWidget {
 }
 
 class _NexusScreenState extends State<NexusScreen> {
-  bool immersive = player;
+  bool immersive = false;
   bool apkDialogOpen = false;
 
   @override
@@ -58,7 +56,7 @@ class _NexusScreenState extends State<NexusScreen> {
       setState(() => immersive = call.arguments == true);
       return;
     }
-    if (call.method != 'message' || player) return;
+    if (call.method != 'message') return;
     try {
       final message =
           jsonDecode(call.arguments as String) as Map<String, dynamic>;
@@ -110,13 +108,12 @@ class _NexusScreenState extends State<NexusScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
-        if (!didPop &&
-            (player || await native.invokeMethod<bool>('webBack') != true)) {
+        if (!didPop && (await native.invokeMethod<bool>('webBack') != true)) {
           await native.invokeMethod<void>('exit');
         }
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: !player,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           top: !immersive,
           bottom: !immersive,
@@ -155,17 +152,14 @@ class ApkDialog extends StatefulWidget {
 class _ApkDialogState extends State<ApkDialog> {
   final form = GlobalKey<FormState>();
   final package = TextEditingController();
-  final token = TextEditingController();
   final version = TextEditingController(text: '1.0.0');
   final buildNumber = TextEditingController(text: '1');
   late final TextEditingController title;
   late String orientation;
   String status = '';
-  int? run;
   bool busy = false;
   Uint8List? apk;
   Uint8List? icon;
-  GitHubBuild? client;
 
   @override
   void initState() {
@@ -180,8 +174,7 @@ class _ApkDialogState extends State<ApkDialog> {
 
   @override
   void dispose() {
-    client?.close();
-    for (final input in [package, token, version, buildNumber, title]) {
+    for (final input in [package, version, buildNumber, title]) {
       input.dispose();
     }
     super.dispose();
@@ -191,43 +184,30 @@ class _ApkDialogState extends State<ApkDialog> {
     if (!form.currentState!.validate()) return;
     setState(() {
       busy = true;
-      run = null;
       apk = null;
+      status = 'Packaging and signing on this device…';
     });
-    final github = GitHubBuild(token.text.trim());
-    client = github;
-    void progress(String value) {
-      if (mounted) setState(() => status = value);
-    }
-
     try {
-      final id = await github.submit(
-        html: widget.game,
-        package: package.text.trim(),
-        title: title.text.trim(),
-        orientation: orientation,
-        version: version.text.trim(),
-        buildNumber: buildNumber.text.trim(),
-        icon: icon,
-        progress: progress,
-      );
-      if (!mounted) return;
-      setState(() => run = id);
-      final result = await github.waitForApk(id, package.text.trim(), progress);
+      final result = await native.invokeMethod<Uint8List>('buildApk', {
+        'html': widget.game,
+        'package': package.text.trim(),
+        'name': title.text.trim(),
+        'orientation': orientation,
+        'version': version.text.trim(),
+        'number': int.parse(buildNumber.text.trim()),
+        'icon': icon,
+      });
       if (mounted)
         setState(() {
           apk = result;
-          status = 'Your APK is ready to save.';
+          status = result == null
+              ? 'No APK was generated.'
+              : 'Your APK is ready to save.';
         });
-    } on GitHubBuildError catch (error) {
-      progress(error.message);
-    } catch (_) {
-      progress(
-        'Could not reach GitHub or read the download. Check your connection.',
-      );
+    } on PlatformException catch (error) {
+      if (mounted)
+        setState(() => status = error.message ?? 'Could not build the APK.');
     } finally {
-      github.close();
-      if (identical(client, github)) client = null;
       if (mounted) setState(() => busy = false);
     }
   }
@@ -261,21 +241,10 @@ class _ApkDialogState extends State<ApkDialog> {
     }
   }
 
-  Future<void> openGitHub(String path) async {
-    try {
-      await native.invokeMethod<void>('open', {
-        'url': 'https://github.com/$path',
-      });
-    } on PlatformException {
-      if (mounted) setState(() => status = 'Could not open GitHub.');
-    }
-  }
-
   Widget input(
     TextEditingController controller,
     String label, {
     required String? Function(String) validate,
-    bool secret = false,
     String? hint,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -287,9 +256,7 @@ class _ApkDialogState extends State<ApkDialog> {
         hintText: hint,
         border: const OutlineInputBorder(),
       ),
-      obscureText: secret,
       autocorrect: false,
-      enableSuggestions: !secret,
       validator: (value) => validate(value?.trim() ?? ''),
     ),
   );
@@ -307,7 +274,7 @@ class _ApkDialogState extends State<ApkDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'GitHub Actions builds a standalone, full-screen game. This repository is public. Uploaded game data and the build can be accessible to others.',
+              'Creates and signs a standalone, full-screen game APK on this device.',
             ),
             const SizedBox(height: 16),
             input(
@@ -327,7 +294,8 @@ class _ApkDialogState extends State<ApkDialog> {
               validate: (v) =>
                   !packagePattern.hasMatch(v) ||
                       v.length > 120 ||
-                      v == 'com.nexusengine.app'
+                      (v == 'com.nexusengine.app' ||
+                          v == 'com.nexusengine.templateplaceholder')
                   ? 'Enter a unique ID such as com.example.mygame.'
                   : null,
             ),
@@ -393,39 +361,11 @@ class _ApkDialogState extends State<ApkDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            input(
-              token,
-              'Fine-grained GitHub token',
-              secret: true,
-              validate: (v) => v.startsWith('github_pat_')
-                  ? null
-                  : 'Enter a fine-grained token.',
-            ),
-            const Text(
-              'Select Game-Engine and grant Contents and Actions read/write. The token stays in this dialog session.',
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: busy
-                    ? null
-                    : () => openGitHub('settings/personal-access-tokens/new'),
-                child: const Text('Create a GitHub token'),
-              ),
-            ),
             if (busy) const LinearProgressIndicator(),
             if (status.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(status),
-              ),
-            if (run != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: () => openGitHub('$repository/actions/runs/$run'),
-                  child: const Text('Open GitHub build'),
-                ),
               ),
           ],
         ),
@@ -433,8 +373,8 @@ class _ApkDialogState extends State<ApkDialog> {
     ),
     actions: [
       TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: Text(busy && run != null ? 'Close (build continues)' : 'Close'),
+        onPressed: busy ? null : () => Navigator.of(context).pop(),
+        child: const Text('Close'),
       ),
       FilledButton(
         onPressed: busy
@@ -442,7 +382,7 @@ class _ApkDialogState extends State<ApkDialog> {
             : apk == null
             ? buildApk
             : saveApk,
-        child: Text(apk == null ? 'Build APK on GitHub' : 'Save APK'),
+        child: Text(apk == null ? 'Build APK' : 'Save APK'),
       ),
     ],
   );

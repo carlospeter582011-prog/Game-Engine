@@ -3,7 +3,6 @@ package com.nexusengine.app
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -31,21 +30,23 @@ import io.flutter.plugin.common.StandardMessageCodec
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 import java.io.ByteArrayInputStream
+import java.io.File
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.cert.X509Certificate
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 
 class MainActivity : FlutterActivity() {
     private val origin = "https://appassets.androidplatform.net"
     private val editorUrl = "$origin/flutter/editor.html"
-    private val playerUrl = "$origin/game/game.html"
     private var document: PendingDocument? = null
     private var iconPicker: MethodChannel.Result? = null
     private var picker: ValueCallback<Array<Uri>>? = null
     private var channel: MethodChannel? = null
     private var webView: WebView? = null
     private var immersive = false
-    private val editor by lazy {
-        packageManager.getActivityInfo(componentName, PackageManager.GET_META_DATA)
-            .metaData.getBoolean("nexus.editor")
-    }
+    private var buildingApk = false
 
     private data class PendingDocument(val bytes: ByteArray, val result: MethodChannel.Result)
 
@@ -90,29 +91,19 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "buildApk" -> buildApk(call, result)
                 "fullscreen" -> {
-                    immersive = if (editor) !immersive else true
+                    immersive = !immersive
                     applyFullscreen()
                     result.success(null)
                 }
                 "exit" -> { finish(); result.success(null) }
                 "webBack" -> {
                     val view = webView
-                    if (view == null || !editor) result.success(false)
+                    if (view == null) result.success(false)
                     else view.evaluateJavascript("window.nexusHandleBack?.() || false") {
                         result.success(it == "true")
                     }
-                }
-                "open" -> {
-                    val url = Uri.parse(call.argument<String>("url") ?: "")
-                    if (url.scheme == "https" && url.host == "github.com") {
-                        try {
-                            startActivity(Intent(Intent.ACTION_VIEW, url))
-                            result.success(null)
-                        } catch (error: Exception) {
-                            result.error("OPEN", error.message, null)
-                        }
-                    } else result.error("OPEN", "Invalid GitHub link", null)
                 }
                 else -> result.notImplemented()
             }
@@ -136,7 +127,6 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        immersive = !editor
         applyFullscreen()
     }
 
@@ -178,7 +168,7 @@ class MainActivity : FlutterActivity() {
             .addPathHandler("/flutter/") { path ->
                 val allowed = setOf("editor.html", "python.js", "vendor/skulpt.min.js",
                     "vendor/skulpt-stdlib.js", "vendor/Skulpt-LICENSE.txt")
-                if (!editor || path !in allowed) null
+                if (path !in allowed) null
                 else {
                     val mime = when {
                         path.endsWith(".html") -> "text/html"
@@ -188,9 +178,7 @@ class MainActivity : FlutterActivity() {
                     WebResourceResponse(mime, "UTF-8", assets.open("flutter_assets/assets/web/$path"))
                 }
             }
-            .addPathHandler("/game/", WebViewAssetLoader.AssetsPathHandler(context))
             .build()
-        val page = if (editor) editorUrl else playerUrl
         return WebView(context).apply {
             setBackgroundColor(Color.rgb(13, 17, 23))
             settings.javaScriptEnabled = true
@@ -200,20 +188,20 @@ class MainActivity : FlutterActivity() {
             settings.mediaPlaybackRequiresUserGesture = true
             webViewClient = object : WebViewClientCompat() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                    request.url.toString() != page
+                    request.url.toString() != editorUrl
 
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     val url = request.url
                     if (url.scheme in setOf("data", "blob")) return null
                     if (url.scheme == "https" && url.host == "appassets.androidplatform.net" &&
-                        (if (editor) url.path?.startsWith("/flutter/") == true else url.path == "/game/game.html")) {
+                        url.path?.startsWith("/flutter/") == true) {
                         loader.shouldInterceptRequest(url)?.let { return it }
                     }
                     return WebResourceResponse("text/plain", "UTF-8", 404, "Blocked",
                         emptyMap(), ByteArrayInputStream(ByteArray(0)))
                 }
             }
-            if (editor) {
+            run {
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
                     WebViewCompat.addWebMessageListener(this, "NexusNative", setOf(origin)) {
                         _: WebView, message, sourceOrigin, mainFrame, _: JavaScriptReplyProxy ->
@@ -249,8 +237,78 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
-            loadUrl(page)
+            loadUrl(editorUrl)
         }
+    }
+
+    private fun buildApk(call: io.flutter.plugin.common.MethodCall, result: MethodChannel.Result) {
+        if (buildingApk) {
+            result.error("BUSY", "Another APK export is already running.", null)
+            return
+        }
+        val html = call.argument<String>("html")
+        val packageId = call.argument<String>("package")
+        val label = call.argument<String>("name")
+        val version = call.argument<String>("version")
+        val number = call.argument<Int>("number")
+        val orientation = call.argument<String>("orientation")
+        val icon = call.argument<ByteArray>("icon")
+        if (html == null || packageId == null || label == null || version == null ||
+            number == null || orientation == null) {
+            result.error("METADATA", "Fill in the game’s APK settings.", null)
+            return
+        }
+        buildingApk = true
+        Thread {
+            try {
+                val work = File(cacheDir, "game-export").apply { mkdirs() }
+                val unsigned = File.createTempFile("unsigned-", ".apk", work)
+                try {
+                    val signed = File.createTempFile("signed-", ".apk", work)
+                    try {
+                        val key = gameSigningKey()
+                        assets.open("nexus-player.apk").use { template ->
+                            GameApk.build(template, unsigned, signed, html.toByteArray(Charsets.UTF_8),
+                                icon, packageId, label, version, number, orientation,
+                                key.privateKey, key.certificate as X509Certificate)
+                        }
+                        val bytes = signed.readBytes()
+                        runOnUiThread { buildingApk = false; result.success(bytes) }
+                    } finally {
+                        signed.delete()
+                    }
+                } finally {
+                    unsigned.delete()
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    buildingApk = false
+                    result.error("APK", error.message ?: "Could not package or sign the game.", null)
+                }
+            }
+        }.start()
+    }
+
+    private fun gameSigningKey(): KeyStore.PrivateKeyEntry {
+        val alias = "nexus-game-signing-v1"
+        synchronized(signingLock) {
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (!store.containsAlias(alias)) {
+                val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+                generator.initialize(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+                    .setKeySize(2048)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .setCertificateSubject(javax.security.auth.x500.X500Principal("CN=Nexus Games"))
+                    .build())
+                generator.generateKeyPair()
+            }
+            return store.getEntry(alias, null) as KeyStore.PrivateKeyEntry
+        }
+    }
+
+    private companion object {
+        val signingLock = Any()
     }
 
     @Deprecated("FlutterActivity forwards activity results for the system document picker.")

@@ -10,5 +10,4 @@ assets/web/vendor/skulpt*.js
 android/gradlew
 android/gradlew.bat
 android/gradle/wrapper/gradle-wrapper.jar
-android/app/src/main/res/drawable-nodpi/game_icon.png
 __pycache__/

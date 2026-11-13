@@ -30,6 +30,8 @@ jobs:
           flutter-version: '3.50.0'
           cache: true
       - run: bash tools/fetch-python.sh
+      - run: bash tools/build-player.sh
+      - run: bash tools/test-player.sh
       - run: flutter pub get
       - run: flutter analyze
       - name: Configure signing

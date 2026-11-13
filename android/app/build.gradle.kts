@@ -3,9 +3,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val standalone = providers.environmentVariable("NEXUS_GAME").orNull == "1"
-val packageId = providers.environmentVariable("NEXUS_PACKAGE").orElse("com.nexusengine.app")
-val appLabel = providers.environmentVariable("NEXUS_NAME").orElse("Nexus Engine")
 val keyStore = providers.environmentVariable("NEXUS_KEYSTORE").orNull
 
 android {
@@ -17,16 +14,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     defaultConfig {
-        applicationId = packageId.get()
+        applicationId = "com.nexusengine.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["nexusIcon"] = providers.environmentVariable("NEXUS_ICON").orElse("@drawable/ic_nexus").get()
-        manifestPlaceholders["nexusLabel"] = appLabel.get()
-        manifestPlaceholders["nexusOrientation"] = providers.environmentVariable("NEXUS_ORIENTATION").orElse("unspecified").get()
-        if (!standalone) manifestPlaceholders["nexusEditor"] = "true"
-        else manifestPlaceholders["nexusEditor"] = "false"
     }
     if (keyStore != null) {
         signingConfigs.create("nexusRelease") {
@@ -51,6 +43,7 @@ kotlin {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
+    implementation("com.android.tools.build:apksig:8.7.3")
 }
 
 flutter { source = "../.." }
