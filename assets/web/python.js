@@ -29,10 +29,16 @@ function installNexusPython(env) {
       if (!update || !sk.builtin.checkCallable(update)) {
         throw Error('Define on_event(event, dt, game).');
       }
-      return (event, dt, game) => {
+      return (event, dt, game, api = {}) => {
         write = log;
         sk.execStart = Date.now();
         const context = sk.ffi.remapToPy(game);
+        for (const [name, handler] of Object.entries(api)) {
+          context.mp$ass_subscript(new sk.builtin.str(name), new sk.builtin.func((...args) => {
+            const result = handler(...args.map(value => sk.ffi.remapToJs(value)));
+            return result == null ? sk.builtin.none.none$ : sk.ffi.remapToPy(result);
+          }));
+        }
         sk.misceval.callsimArray(update, [new sk.builtin.str(event), new sk.builtin.float_(dt), context]);
         const number = key => {
           const value = context.mp$lookup(new sk.builtin.str(key));

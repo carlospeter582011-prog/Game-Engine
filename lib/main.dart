@@ -160,6 +160,9 @@ class _ApkDialogState extends State<ApkDialog> {
   bool busy = false;
   Uint8List? apk;
   Uint8List? icon;
+  Uint8List? signingKey;
+  final keyPassword = TextEditingController();
+  final keyAlias = TextEditingController();
 
   @override
   void initState() {
@@ -174,7 +177,14 @@ class _ApkDialogState extends State<ApkDialog> {
 
   @override
   void dispose() {
-    for (final input in [package, version, buildNumber, title]) {
+    for (final input in [
+      package,
+      version,
+      buildNumber,
+      title,
+      keyPassword,
+      keyAlias,
+    ]) {
       input.dispose();
     }
     super.dispose();
@@ -196,6 +206,9 @@ class _ApkDialogState extends State<ApkDialog> {
         'version': version.text.trim(),
         'number': int.parse(buildNumber.text.trim()),
         'icon': icon,
+        'keystore': signingKey,
+        'keyPassword': keyPassword.text,
+        'keyAlias': keyAlias.text.trim(),
       });
       if (mounted)
         setState(() {
@@ -209,6 +222,16 @@ class _ApkDialogState extends State<ApkDialog> {
         setState(() => status = error.message ?? 'Could not build the APK.');
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> pickSigningKey() async {
+    try {
+      final bytes = await native.invokeMethod<Uint8List>('chooseSigningKey');
+      if (bytes != null && mounted) setState(() => signingKey = bytes);
+    } on PlatformException catch (error) {
+      if (mounted)
+        setState(() => status = error.message ?? 'Could not read signing key.');
     }
   }
 
@@ -299,20 +322,44 @@ class _ApkDialogState extends State<ApkDialog> {
                   ? 'Enter a unique ID such as com.example.mygame.'
                   : null,
             ),
-            DropdownButtonFormField<String>(
-              initialValue: orientation,
-              decoration: const InputDecoration(
-                labelText: 'Orientation',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'auto', child: Text('Follow device')),
-                DropdownMenuItem(value: 'portrait', child: Text('Portrait')),
-                DropdownMenuItem(value: 'landscape', child: Text('Landscape')),
-              ],
-              onChanged: busy || apk != null
+            OutlinedButton.icon(
+              onPressed: busy || apk != null
                   ? null
-                  : (v) => setState(() => orientation = v!),
+                  : () async {
+                      final choice = await showModalBottomSheet<String>(
+                        context: context,
+                        builder: (context) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final entry in const {
+                                'auto': 'Follow device',
+                                'portrait': 'Portrait',
+                                'landscape': 'Landscape',
+                              }.entries)
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.screen_rotation_outlined,
+                                  ),
+                                  title: Text(entry.value),
+                                  selected: orientation == entry.key,
+                                  trailing: orientation == entry.key
+                                      ? const Icon(Icons.check)
+                                      : null,
+                                  onTap: () =>
+                                      Navigator.pop(context, entry.key),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (choice != null && mounted)
+                        setState(() => orientation = choice);
+                    },
+              icon: const Icon(Icons.screen_rotation_outlined),
+              label: Text(
+                'Orientation · ${const {'auto': 'Follow device', 'portrait': 'Portrait', 'landscape': 'Landscape'}[orientation]}',
+              ),
             ),
             const SizedBox(height: 12),
             input(
@@ -361,6 +408,41 @@ class _ApkDialogState extends State<ApkDialog> {
               ],
             ),
             const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: busy || apk != null ? null : pickSigningKey,
+              icon: const Icon(Icons.key_outlined),
+              label: Text(
+                signingKey == null
+                    ? 'Use portable signing key (.p12)'
+                    : 'Change portable signing key',
+              ),
+            ),
+            if (signingKey != null) ...[
+              TextField(
+                controller: keyPassword,
+                obscureText: true,
+                enabled: !busy && apk == null,
+                decoration: const InputDecoration(labelText: 'Key password'),
+              ),
+              TextField(
+                controller: keyAlias,
+                enabled: !busy && apk == null,
+                decoration: const InputDecoration(
+                  labelText: 'Key alias (optional with one key)',
+                ),
+              ),
+              TextButton(
+                onPressed: busy || apk != null
+                    ? null
+                    : () => setState(() {
+                        signingKey = null;
+                        keyPassword.clear();
+                        keyAlias.clear();
+                      }),
+                child: const Text('Use device signing key'),
+              ),
+            ],
             if (busy) const LinearProgressIndicator(),
             if (status.isNotEmpty)
               Padding(

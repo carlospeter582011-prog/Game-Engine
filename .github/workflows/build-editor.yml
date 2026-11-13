@@ -3,17 +3,14 @@ name: Build Nexus editor APK
 on:
   push:
     branches: [main]
-    paths:
-      - 'lib/**'
-      - 'assets/**'
-      - 'android/**'
-      - 'pubspec.*'
-      - 'tools/**'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: nexus-editor-release
+  cancel-in-progress: false
 
 jobs:
   android:
@@ -43,15 +40,33 @@ jobs:
           NEXUS_KEY_PASSWORD: ${{ secrets.NEXUS_KEY_PASSWORD }}
       - name: Build editor
         run: |
-          flutter build apk --release
+          version="2.1.$GITHUB_RUN_NUMBER"
+          code="$((1000 + GITHUB_RUN_NUMBER))"
+          flutter build apk --release --build-name="$version" --build-number="$code"
+          flutter build appbundle --release --build-name="$version" --build-number="$code"
           mkdir -p output
           cp build/app/outputs/flutter-apk/app-release.apk output/Nexus-Engine.apk
+          cp build/app/outputs/bundle/release/app-release.aab output/Nexus-Engine.aab
         env:
           NEXUS_STORE_PASSWORD: ${{ secrets.NEXUS_STORE_PASSWORD }}
           NEXUS_KEY_ALIAS: ${{ secrets.NEXUS_KEY_ALIAS }}
           NEXUS_KEY_PASSWORD: ${{ secrets.NEXUS_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
-          name: Nexus-Engine-APK
-          path: output/Nexus-Engine.apk
+          name: Nexus-Engine-Android
+          path: output/*
           if-no-files-found: error
+      - name: Publish latest release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="2.1.$GITHUB_RUN_NUMBER"
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab --clobber
+            gh release edit "$tag" --latest
+          else
+            gh release create "$tag" output/Nexus-Engine.apk output/Nexus-Engine.aab \
+              --target "$GITHUB_SHA" --title "Nexus Engine $version" --generate-notes --latest
+          fi

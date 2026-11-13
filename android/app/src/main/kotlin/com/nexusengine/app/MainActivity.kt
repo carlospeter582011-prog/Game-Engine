@@ -41,6 +41,7 @@ class MainActivity : FlutterActivity() {
     private val origin = "https://appassets.androidplatform.net"
     private val editorUrl = "$origin/flutter/editor.html"
     private var document: PendingDocument? = null
+    private var keyPicker: MethodChannel.Result? = null
     private var iconPicker: MethodChannel.Result? = null
     private var picker: ValueCallback<Array<Uri>>? = null
     private var channel: MethodChannel? = null
@@ -88,6 +89,21 @@ class MainActivity : FlutterActivity() {
                         } catch (error: Exception) {
                             iconPicker = null
                             result.error("ICON", error.message, null)
+                        }
+                    }
+                }
+                "chooseSigningKey" -> {
+                    if (keyPicker != null) result.error("BUSY", "A key picker is already open.", null)
+                    else {
+                        keyPicker = result
+                        try {
+                            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
+                            }, 44)
+                        } catch (error: Exception) {
+                            keyPicker = null
+                            result.error("KEY", error.message, null)
                         }
                     }
                 }
@@ -220,6 +236,7 @@ class MainActivity : FlutterActivity() {
                             when (val value = it.trim()) {
                                 ".zip" -> "application/zip"
                                 ".png" -> "image/png"
+                                ".json" -> "application/json"
                                 else -> value.takeIf { type -> '/' in type }
                             }
                         }.distinct()
@@ -227,6 +244,8 @@ class MainActivity : FlutterActivity() {
                             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                                 addCategory(Intent.CATEGORY_OPENABLE)
                                 type = if (types.size == 1) types.single() else "*/*"
+                                if (params.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+                                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                                 if (types.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, types.toTypedArray())
                             }, 42)
                         } catch (_: Exception) {
@@ -253,6 +272,9 @@ class MainActivity : FlutterActivity() {
         val number = call.argument<Int>("number")
         val orientation = call.argument<String>("orientation")
         val icon = call.argument<ByteArray>("icon")
+        val keystore = call.argument<ByteArray>("keystore")
+        val password = call.argument<String>("keyPassword")
+        val alias = call.argument<String>("keyAlias")
         if (html == null || packageId == null || label == null || version == null ||
             number == null || orientation == null) {
             result.error("METADATA", "Fill in the game’s APK settings.", null)
@@ -266,7 +288,8 @@ class MainActivity : FlutterActivity() {
                 try {
                     val signed = File.createTempFile("signed-", ".apk", work)
                     try {
-                        val key = gameSigningKey()
+                        val key = if (keystore == null) gameSigningKey()
+                        else portableKey(keystore, password.orEmpty(), alias.orEmpty())
                         assets.open("nexus-player.apk").use { template ->
                             GameApk.build(template, unsigned, signed, html.toByteArray(Charsets.UTF_8),
                                 icon, packageId, label, version, number, orientation,
@@ -287,6 +310,22 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }.start()
+    }
+
+    private fun portableKey(bytes: ByteArray, password: String, alias: String): KeyStore.PrivateKeyEntry {
+        require(bytes.size in 1..524288) { "Select a PKCS#12 key file up to 512 KB." }
+        val chars = password.toCharArray()
+        try {
+            val store = KeyStore.getInstance("PKCS12")
+            store.load(ByteArrayInputStream(bytes), chars)
+            val candidates = store.aliases().toList().filter { store.isKeyEntry(it) }
+            val selected = alias.ifBlank {
+                require(candidates.size == 1) { "Enter the alias of the private key in this file." }
+                candidates.single()
+            }
+            return store.getEntry(selected, KeyStore.PasswordProtection(chars)) as? KeyStore.PrivateKeyEntry
+                ?: error("That alias has no private key.")
+        } finally { chars.fill('\u0000') }
     }
 
     private fun gameSigningKey(): KeyStore.PrivateKeyEntry {
@@ -316,8 +355,35 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         val uri = data?.data?.takeIf { resultCode == Activity.RESULT_OK }
         if (requestCode == 42) {
-            picker?.onReceiveValue(uri?.let { arrayOf(it) })
+            val clip = data?.clipData
+            val files = if (resultCode == Activity.RESULT_OK && clip != null)
+                Array(clip.itemCount) { clip.getItemAt(it).uri }
+            else uri?.let { arrayOf(it) }
+            picker?.onReceiveValue(files)
             picker = null
+        }
+        if (requestCode == 44) {
+            val pending = keyPicker ?: return
+            keyPicker = null
+            if (uri == null) { pending.success(null); return }
+            Thread {
+                try {
+                    val bytes = requireNotNull(contentResolver.openInputStream(uri)).use {
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = it.read(buffer)
+                            if (count < 0) break
+                            require(output.size() + count <= 524288) { "Select a key file up to 512 KB." }
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
+                    runOnUiThread { pending.success(bytes) }
+                } catch (error: Exception) {
+                    runOnUiThread { pending.error("KEY", error.message, null) }
+                }
+            }.start()
         }
         if (requestCode == 43) {
             val pending = iconPicker ?: return

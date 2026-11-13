@@ -19,6 +19,8 @@
 html,body{margin:0;padding:0;width:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.4;}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 button,input,select,textarea{font:inherit;color:inherit;}
+select{color-scheme:dark;background-color:#142237!important;border-color:#38506b!important;color:#e6f2ff!important;}
+select option{background:#142237;color:#e6f2ff;}
 button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
 .btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-weight:600;font-size:13px;min-height:40px;color:var(--text);transition:background .15s,transform .08s;}
 .btn:active{transform:scale(.97);}
@@ -109,6 +111,17 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 .badge-err{background:rgba(239,68,68,.2);color:#f87171;}
 .nexus-script-editor{width:100%;min-width:0}.script-code-area{display:flex;min-height:240px;max-height:55vh;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:#0a101b}.script-code-area textarea{border:0;border-radius:0;resize:vertical;flex:1;min-width:0;min-height:240px;line-height:20px;tab-size:4;white-space:pre;overflow:auto}.script-lines{flex:none;width:38px;margin:0;padding:8px 6px;text-align:right;line-height:20px;font-size:12px;color:var(--muted);overflow:hidden;background:var(--bg2);user-select:none}@media(max-width:400px){.script-code-area{max-width:100%}}
 [hidden]{display:none!important;}
+.help-dot{width:23px;height:23px;min-width:23px;min-height:23px;border-radius:50%;padding:0;border:1px solid #41648f;color:#a8d8ff;background:#152a41;font-size:12px;font-weight:800}
+#option-list{display:grid;gap:6px;max-height:min(55dvh,420px);overflow:auto;margin-top:8px}
+.option-row{justify-content:flex-start;text-align:left;width:100%;min-height:44px;overflow-wrap:anywhere}
+.option-row[aria-selected=true]{border-color:#55a9ff;background:#173958}
+#tm-canvas-wrap{overflow:auto;display:block;overscroll-behavior:contain}
+#tm-canvas-wrap canvas{display:block;max-width:none;max-height:none;touch-action:none}
+#tm-canvas-wrap.is-pan canvas{touch-action:pan-x pan-y}
+#preview-bar .row{flex-wrap:wrap}
+#preview-bar{flex-wrap:wrap;gap:5px}
+#preview-debug-hud{white-space:pre-line;overflow-wrap:anywhere;max-width:95%}
+
 #python-panel{margin:10px;flex:1}
 #python-source{display:block;resize:vertical;tab-size:4;margin:5px 0 9px;white-space:pre}
 </style>
@@ -120,7 +133,6 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     <div class="top-actions">
       <button class="btn btn-sm btn-icon" id="btn-undo" aria-label="Undo" title="Undo">↩</button>
       <button class="btn btn-sm btn-icon" id="btn-redo" aria-label="Redo" title="Redo">↪</button>
-      <button class="btn btn-sm" id="btn-editor-fs" title="Fullscreen editor">⛶</button>
       <button class="btn btn-sm" id="btn-save" aria-label="Save Project">Save</button>
       <button class="btn btn-sm btn-ok" id="btn-play" aria-label="Play Preview">▶ Play</button>
     </div>
@@ -157,7 +169,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
         </div>
 
         <div class="card">
-          <div class="card-title"><span>Playable Templates (6)</span><span class="muted">Editable &amp; Exportable</span></div>
+          <div class="card-title"><span>Playable Templates</span><span class="muted">Editable &amp; Exportable</span></div>
           <div id="templates-list" class="grid-2"></div>
         </div>
 
@@ -170,7 +182,9 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
           <div class="card-title">Engine &amp; Project Settings</div>
           <div class="grid-2">
             <div class="field"><label>Project Name</label><input class="input" id="set-proj-name"></div>
-            <div class="field"><label>Active Scene</label><select id="set-active-scene"></select></div>
+            <div class="field"><label>Editing Scene</label><select id="set-active-scene"></select></div>
+            <div class="field"><label>Game Start Scene</label><select id="set-start-scene"></select></div>
+            <div class="field"><label>Game End Scene</label><select id="set-end-scene"></select></div>
             <div class="field"><label>Viewport Width</label><input class="input" type="number" id="set-vp-w"></div>
             <div class="field"><label>Viewport Height</label><input class="input" type="number" id="set-vp-h"></div>
             <div class="field"><label>Gravity Y</label><input class="input" type="number" id="set-grav-y"></div>
@@ -221,6 +235,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
             <input class="input" id="hierarchy-search" placeholder="Search entities or tags..." style="min-height:32px;padding:4px 8px;">
             <button class="btn btn-sm" id="btn-align-menu">Align</button>
           </div>
+          <button class="btn btn-sm" id="batch-objects">Select multiple</button>
           <div id="hierarchy-list"></div>
         </div>
       </div>
@@ -297,7 +312,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
           <button class="tool-btn" data-pxtool="pick">💧</button>
           <input type="color" id="px-color" value="#38bdf8" style="width:34px;height:32px;border:none;background:none;">
           <select id="px-size" style="width:78px;min-height:32px;padding:2px 4px;"><option value="16">16×16</option><option value="32">32×32</option><option value="64">64×64</option></select>
-          <button class="btn btn-sm" id="px-undo">↩</button>
+          <button class="btn btn-sm" id="px-undo" aria-label="Undo pixel edit">↩</button><button class="btn btn-sm" id="px-redo" aria-label="Redo pixel edit">↪</button>
           <button class="btn btn-sm" id="px-flip-h">⇄</button>
           <button class="btn btn-sm" id="px-rot">↻</button>
           <button class="btn btn-sm btn-primary" id="px-save-asset">Save Asset</button>
@@ -326,7 +341,17 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
           <button class="tool-btn" data-tmtool="fill">Fill</button>
           <button class="tool-btn" data-tmtool="rect">Rect</button>
           <button class="tool-btn" data-tmtool="line">Line</button>
-          <button class="btn btn-sm btn-primary" id="tm-ensure">Init/Select Tilemap</button>
+          <button class="tool-btn" data-tmtool="pan">Pan</button>
+          <select id="tm-select" aria-label="Tilemap layer" style="width:130px"></select>
+          <button class="btn btn-sm btn-primary" id="tm-ensure">+ Tilemap</button>
+          <button class="btn btn-sm" id="tm-import">Import Tiled JSON</button>
+          <input type="file" id="tm-file" accept=".json,application/json" hidden>
+          <button class="btn btn-sm" id="tm-size">Map size</button>
+          <button class="btn btn-sm" id="tm-ai">✦ Map assistant</button>
+          <button class="btn btn-sm" id="tm-undo" title="Undo tilemap edit" aria-label="Undo tilemap edit">↩</button>
+          <button class="btn btn-sm" id="tm-redo" title="Redo tilemap edit" aria-label="Redo tilemap edit">↪</button>
+          <button class="btn btn-sm" id="tm-zoom-out" aria-label="Zoom out">−</button>
+          <button class="btn btn-sm" id="tm-zoom-in" aria-label="Zoom in">+</button>
           <button class="btn btn-sm" id="tm-export">Export TM</button>
         </div>
         <div style="padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;overflow-x:auto;" id="tm-palette"></div>
@@ -411,7 +436,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
       <div id="sub-assets" class="subpanel">
         <div class="scroll-y">
           <div class="card">
-            <div class="card-title"><span>Project Assets</span><input class="input" id="asset-search" placeholder="Filter..." style="width:130px;min-height:30px;"></div>
+            <div class="card-title"><span>Project Assets</span><button class="btn btn-sm" id="asset-import">Import files</button><input id="asset-files" type="file" accept="image/*,audio/*" multiple hidden><input class="input" id="asset-search" placeholder="Filter..." style="width:130px;min-height:30px;"></div>
             <div id="assets-grid" class="grid-3"></div>
           </div>
           <div class="card">
@@ -483,10 +508,11 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
       <button class="btn btn-sm btn-err" id="prev-stop">■ Stop</button>
       <button class="btn btn-sm" id="prev-pause">⏸ Pause</button>
       <button class="btn btn-sm" id="prev-restart">↻ Restart</button>
+      <button class="btn btn-sm" id="prev-step">Step</button>
     </div>
     <div class="row">
       <button class="btn btn-sm" id="prev-dbg-toggle">Debug</button>
-      <button class="btn btn-sm" id="prev-fs">⛶</button>
+      <button class="btn btn-sm" id="prev-device">Device preview</button>
     </div>
   </div>
   <div id="preview-stage">
@@ -782,6 +808,8 @@ function createNexusRuntime(root) {
   class GameRuntime {
     constructor(project, canvas, opts = {}) {
       this.project = deepClone(project);
+      this.initialVariables = deepClone(project.variables || {});
+      this.events = [];
       this.canvas = canvas;
       this.ctx = canvas ? canvas.getContext('2d') : null;
       this.audio = new AudioEngine();
@@ -822,14 +850,14 @@ function createNexusRuntime(root) {
     init(sceneId) {
       this._bindInput();
       this.preloadAssets();
-      this.loadScene(sceneId || this.project.activeSceneId || this.project.scenes[0]?.id);
+      this.loadScene(sceneId || this.project.settings?.startSceneId || this.project.activeSceneId);
     }
 
     preloadAssets() {
       const assets = this.project.assets || {};
       for (const id of Object.keys(assets)) {
         const a = assets[id];
-        if (a && a.dataUrl && !this.imageCache.has(id)) {
+        if (a && a.type !== 'audio' && a.dataUrl && !this.imageCache.has(id)) {
           const img = new Image();
           img.src = a.dataUrl;
           this.imageCache.set(id, img);
@@ -840,11 +868,17 @@ function createNexusRuntime(root) {
     loadScene(sceneId) {
       const found = this.project.scenes.find(s => s.id === sceneId) || this.project.scenes[0];
       if (!found) return;
+      this.result = null;
+      this.events = [];
       this.scene = deepClone(found);
+      this.finishing = false;
       this.entities = this.scene.entities || [];
       this.entityMap.clear();
       this.particles = [];
       this.activeTriggers.clear();
+      this.joystickTouches.clear();
+      Object.assign(this.virtualAxes,{x:0,y:0,jump:false,action:false});
+      this.jumpPointer = null;
       this.delayedTasks = [];
       this.timers.clear();
       this.pendingDestroy.clear();
@@ -864,6 +898,76 @@ function createNexusRuntime(root) {
         }
         this.triggerEntityEvent(e, 'OnStart', {});
         this.triggerEntityEvent(e, 'OnCreated', {});
+        this.triggerEntityEvent(e, 'OnSceneStart', {});
+      }
+    }
+
+    scheduleScene(name) {
+      const scene = this.project.scenes.find(candidate => candidate.id === name || candidate.name === name);
+      if (scene) this.nextSceneId = scene.id;
+      return !!scene;
+    }
+
+    finishGame(outcome = 'win') {
+      if (this.result || this.finishing) return;
+      outcome = outcome === 'lose' ? 'lose' : 'win';
+      this.finishing = true;
+      try {
+        for (const entity of [...this.entities]) this.triggerEntityEvent(entity, 'OnGameEnd', {eventName: outcome});
+      } finally { this.finishing = false; }
+      this.project.variables ||= {};
+      this.project.variables.gameResult = outcome;
+      const end = this.project.settings?.endSceneId;
+      if (end && end !== this.scene?.id && this.scheduleScene(end)) return;
+      this.result = outcome;
+    }
+
+    restartGame() {
+      this.project.variables = deepClone(this.initialVariables);
+      this.nextSceneId = null;
+      this.loadScene(this.project.settings?.startSceneId || this.project.activeSceneId);
+    }
+
+    broadcast(name, value, sender) {
+      if (!name || typeof name !== 'string' || this.events.length >= 256) return;
+      this.events.push({eventName: name, value, other: sender});
+    }
+
+    gameSave(slot, load = false) {
+      if (!/^[a-z0-9_-]{1,32}$/i.test(slot)) throw Error('Use a save slot name with 1–32 letters, digits, underscores or hyphens.');
+      const key = 'nexus-game:' + this.project.id + ':' + slot;
+      if (load) {
+        const raw = root.localStorage.getItem(key);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data.variables || !this.scheduleScene(data.scene)) return false;
+        this.project.variables = data.variables;
+      } else {
+        const data = JSON.stringify({variables: this.project.variables || {}, scene: this.scene.id});
+        if (data.length > 1024 * 1024) throw Error('Save slot exceeds 1 MB.');
+        root.localStorage.setItem(key, data);
+      }
+      return true;
+    }
+
+    variableStore(entity, scope) {
+      const owner = scope === 'object' ? entity : scope === 'scene' ? this.scene : this.project;
+      return owner.variables ||= {};
+    }
+
+    spawnPrefab(id, entity, x, y) {
+      const prefab = this.project.prefabs?.[id];
+      if (!prefab?.entityTemplate || this.pendingAdd.length >= 128) return;
+      const clone = deepClone(prefab.entityTemplate);
+      clone.id = 'ent_dyn_' + this.idSeq++;
+      clone.components.Transform.x = (entity.components.Transform?.x || 0) + (Number(x) || 0);
+      clone.components.Transform.y = (entity.components.Transform?.y || 0) + (Number(y) || 0);
+      this.pendingAdd.push(clone);
+    }
+
+    setEntityText(entity, value) {
+      for (const type of ['UIElement','TextRenderer']) {
+        if (entity?.components[type]) entity.components[type].text = String(value ?? '');
       }
     }
 
@@ -902,7 +1006,7 @@ function createNexusRuntime(root) {
         const dt = Math.min(rawDt, 0.05);
         this.frameTime = rawDt * 1000;
         if (rawDt > 0.0001) this.fps = this.fps * 0.9 + (1 / rawDt) * 0.1;
-        if (!this.paused) {
+        if (!this.paused && !this.result) {
           this.step(dt);
         }
         this.render();
@@ -928,6 +1032,14 @@ function createNexusRuntime(root) {
         }
         this.update(dt);
         this._flushPendingEntities();
+        for (const payload of this.events.splice(0, 32)) {
+          for (const entity of [...this.entities]) this.triggerEntityEvent(entity, 'OnMessage', payload);
+        }
+        if (this.nextSceneId) {
+          const id = this.nextSceneId;
+          this.nextSceneId = null;
+          this.loadScene(id);
+        }
       } catch (err) {
         this.lastError = String(err.message || err);
         this.onLog('Runtime Error: ' + this.lastError, 'err');
@@ -1401,7 +1513,22 @@ function createNexusRuntime(root) {
           const values = sb._pythonEvent(eventType, payload.dt || 0, {
             x: transform.x, y: transform.y, vx: body?.vx || 0, vy: body?.vy || 0,
             grounded: !!entity._grounded, keys, name: entity.name,
-            other: payload.other?.name || '', event_name: payload.eventName || ''
+            other: payload.other?.name || '', event_name: payload.eventName || '',
+            event_value: payload.value ?? null
+          }, {
+            get_var: (key, scope = 'global') => this.variableStore(entity, scope)[key] ?? null,
+            set_var: (key, value, scope = 'global') => {
+              if (typeof key === 'string' && !['__proto__','constructor','prototype'].includes(key))
+                this.variableStore(entity, scope)[key] = value;
+            },
+            change_scene: name => this.scheduleScene(name),
+            end_game: result => this.finishGame(result),
+            broadcast: (name, value) => this.broadcast(name, value, entity),
+            spawn: (id, x, y) => this.spawnPrefab(id, entity, x, y),
+            play_sound: preset => this.playGameSound(preset),
+            set_text: (name, text) => this.setEntityText(this.entities.find(e => e.name === name), text),
+            save: (slot = 'slot1') => this.gameSave(slot),
+            load: (slot = 'slot1') => this.gameSave(slot, true)
           });
           if (Number.isFinite(values.x)) transform.x = values.x;
           if (Number.isFinite(values.y)) transform.y = values.y;
@@ -1430,39 +1557,50 @@ function createNexusRuntime(root) {
       for (const node of graph.nodes || []) {
         if (node.type !== eventType) continue;
         if (node.params?.filterTag && payload.other && !(payload.other.tags || []).includes(node.params.filterTag)) continue;
-        if (eventType === 'OnButtonPress' && node.params?.eventName && payload.eventName !== node.params.eventName) continue;
-        if (eventType === 'OnTimer' && node.params?.eventName && payload.eventName !== node.params.eventName) continue;
+        if (['OnButtonPress','OnTimer','OnMessage','OnKeyPressed','OnKeyReleased','OnGameEnd'].includes(eventType) &&
+            node.params?.eventName && payload.eventName !== node.params.eventName) continue;
         this._execFromNode(graph, node, entity, payload);
       }
     }
 
     _execFromNode(graph, startNode, selfEnt, payload) {
       const visitedSteps = { count: 0, max: 250 };
-      const getVar = (scope, key) => {
-        if (scope === 'object') return selfEnt.variables?.[key];
-        if (scope === 'scene') return this.scene.variables?.[key];
-        return this.project.variables?.[key];
+      const getVar = (scope, key) => this.variableStore(selfEnt, scope)[key];
+      const setVar = (scope, key, value) => {
+        if (!['__proto__','constructor','prototype'].includes(key)) this.variableStore(selfEnt, scope)[key] = value;
       };
-      const setVar = (scope, key, val) => {
-        if (scope === 'object') { if (!selfEnt.variables) selfEnt.variables = {}; selfEnt.variables[key] = val; }
-        else if (scope === 'scene') { if (!this.scene.variables) this.scene.variables = {}; this.scene.variables[key] = val; }
-        else { if (!this.project.variables) this.project.variables = {}; this.project.variables[key] = val; }
-      };
-
+      const dataStack = new Set();
       const evalDataInput = (node, portName, fallback) => {
         const edge = (graph.edges || []).find(ed => ed.toNode === node.id && ed.toPort === portName);
         if (!edge) return fallback;
         const src = graph.nodes.find(n => n.id === edge.fromNode);
         if (!src) return fallback;
-        return evalPure(src, edge.fromPort);
+        if (dataStack.has(src.id) || dataStack.size >= 50) return fallback;
+        dataStack.add(src.id);
+        try { return evalPure(src, edge.fromPort); }
+        finally { dataStack.delete(src.id); }
       };
 
       const evalPure = (node) => {
         const p = node.params || {};
+        const list = () => {
+          const value = getVar(p.scope, p.key);
+          return Array.isArray(value) ? value : [];
+        };
+        if (node.type === 'Literal') {
+          try { return JSON.parse(p.value); } catch { return p.value; }
+        }
+        if (node.type === 'ListLength') return list().length;
+        if (node.type === 'ListGet') return list()[Number(evalDataInput(node,'index',p.index))] ?? null;
+        if (node.type === 'JoinText') return String(evalDataInput(node,'a',p.a)) + String(evalDataInput(node,'b',p.b));
+        if (node.type === 'EventValue') return payload.value ?? null;
+        if (node.type === 'KeyHeld') return this.keys.has(p.code) ||
+          (p.code === 'ArrowLeft' && this.virtualAxes.x < 0) || (p.code === 'ArrowRight' && this.virtualAxes.x > 0) ||
+          (p.code === 'ArrowUp' && this.virtualAxes.y < 0) || (p.code === 'ArrowDown' && this.virtualAxes.y > 0);
         if (node.type === 'GetVariable') return getVar(p.scope || 'global', p.key || 'score') ?? 0;
         if (node.type === 'GetPosition') {
-          const t = (p.target === 'other' && payload.other) ? payload.other : selfEnt;
-          return p.axis === 'y' ? (t.components.Transform?.y || 0) : (t.components.Transform?.x || 0);
+          const t = p.target === 'other' ? payload.other : selfEnt;
+          return p.axis === 'y' ? (t?.components.Transform?.y || 0) : (t?.components.Transform?.x || 0);
         }
         if (node.type === 'MathOp') {
           const a = Number(evalDataInput(node, 'a', p.a ?? 0));
@@ -1472,6 +1610,13 @@ function createNexusRuntime(root) {
             case '-': return a - b;
             case '*': return a * b;
             case '/': return b !== 0 ? a / b : 0;
+            case '%': return b !== 0 ? a % b : 0;
+            case '**': return a ** b;
+            case 'abs': return Math.abs(a);
+            case 'floor': return Math.floor(a);
+            case 'round': return Math.round(a);
+            case 'min': return Math.min(a,b);
+            case 'max': return Math.max(a,b);
             case 'random': return a + Math.random() * (b - a);
             case 'clamp': return Vec2.clamp(a, 0, b || 100);
             case 'lerp': return Vec2.lerp(a, b, 0.5);
@@ -1500,7 +1645,7 @@ function createNexusRuntime(root) {
 
       const runNode = (node) => {
         if (!node || visitedSteps.count++ >= visitedSteps.max) return;
-        this.onGraphTrace(graph.id, node.id);
+        this.onGraphTrace(graph.id, node.id, selfEnt);
         const p = node.params || {};
         const nextEdges = (port = 'out') => (graph.edges || []).filter(ed => ed.fromNode === node.id && ed.fromPort === port);
         const follow = (port = 'out') => {
@@ -1511,7 +1656,7 @@ function createNexusRuntime(root) {
         };
 
         const targetEnt = () => {
-          if (p.target === 'other' && payload.other) return payload.other;
+          if (p.target === 'other') return payload.other || (p.targetName ? this.entities.find(x => x.name === p.targetName) : null);
           if (p.targetName) return this.entities.find(x => x.name === p.targetName);
           return selfEnt;
         };
@@ -1520,7 +1665,34 @@ function createNexusRuntime(root) {
           case 'OnStart': case 'OnUpdate': case 'OnFixedUpdate': case 'OnCollision':
           case 'OnTriggerEnter': case 'OnTriggerExit': case 'OnButtonPress': case 'OnTouch':
           case 'OnTimer': case 'OnAnimComplete': case 'OnCreated': case 'OnDestroyed':
+          case 'OnMessage': case 'OnSceneStart': case 'OnGameEnd': case 'OnKeyPressed': case 'OnKeyReleased':
             follow('out'); break;
+          case 'Broadcast':
+            this.broadcast(p.eventName, evalDataInput(node,'value',p.value), selfEnt);
+            follow(); break;
+          case 'EndGame':
+            this.finishGame(p.outcome); break;
+          case 'RestartGame':
+            this.delayedTasks.push({left:0.01, fn:() => this.restartGame()}); break;
+          case 'SaveGame': case 'LoadGame': {
+            let success = false;
+            try { success = this.gameSave(p.slot, node.type === 'LoadGame'); }
+            catch (error) { this.onLog(error.message,'err'); }
+            follow(success ? 'success' : 'failure'); break;
+          }
+          case 'ListAppend': case 'ListRemove': case 'ListClear': {
+            const stored = getVar(p.scope,p.key);
+            const list = Array.isArray(stored) ? stored.slice() : [];
+            if (node.type === 'ListAppend' && list.length < 10000) list.push(evalDataInput(node,'value',p.value));
+            if (node.type === 'ListRemove') {
+              const index = Number(evalDataInput(node,'index',p.index));
+              if (Number.isInteger(index) && index >= 0) list.splice(index,1);
+            }
+            setVar(p.scope,p.key,node.type === 'ListClear' ? [] : list);
+            follow(); break;
+          }
+          case 'Log':
+            this.onLog(String(evalDataInput(node,'value',p.value)), 'info'); follow(); break;
           case 'Sequence':
             follow('out1'); follow('out2'); break;
           case 'If': {
@@ -1530,7 +1702,7 @@ function createNexusRuntime(root) {
             break;
           }
           case 'Loop': {
-            const count = Math.min(30, Math.max(0, Number(p.count || 3)));
+            const count = Math.min(30, Math.max(0, Math.floor(Number(evalDataInput(node,'count',p.count ?? 3)))));
             for (let i = 0; i < count; i++) follow('body');
             follow('done');
             break;
@@ -1556,7 +1728,7 @@ function createNexusRuntime(root) {
           case 'MoveObject': {
             const t = targetEnt();
             if (t?.components?.Transform) {
-              const dtScale = p.perSecond ? this.fixedDt : 1;
+              const dtScale = p.perSecond ? (payload.dt ?? this.fixedDt) : 1;
               t.components.Transform.x += Number(p.dx || 0) * dtScale;
               t.components.Transform.y += Number(p.dy || 0) * dtScale;
             }
@@ -1600,14 +1772,7 @@ function createNexusRuntime(root) {
             follow('out'); break;
           }
           case 'CreateObject': {
-            const pf = this.project.prefabs?.[p.prefabId];
-            if (pf) {
-              const clone = deepClone(pf.entityTemplate);
-              clone.id = 'ent_dyn_' + (this.idSeq++);
-              clone.components.Transform.x = (selfEnt.components.Transform?.x || 0) + Number(p.offsetX || 0);
-              clone.components.Transform.y = (selfEnt.components.Transform?.y || 0) + Number(p.offsetY || 0);
-              this.pendingAdd.push(clone);
-            }
+            this.spawnPrefab(p.prefabId, selfEnt, p.offsetX, p.offsetY);
             follow('out'); break;
           }
           case 'DestroyObject': {
@@ -1626,18 +1791,16 @@ function createNexusRuntime(root) {
             follow('out'); break;
           }
           case 'ChangeScene': {
-            const targetScene = this.project.scenes.find(s => s.name === p.sceneName || s.id === p.sceneName);
-            if (targetScene) this.delayedTasks.push({ left: 0.01, fn: () => this.loadScene(targetScene.id) });
+            this.scheduleScene(p.sceneName);
             break;
           }
           case 'PlaySound':
-            this.audio.playPreset(p.preset || 'coin', Number(p.volume ?? 0.7));
+            this.playGameSound(p.preset || 'coin', Number(p.volume ?? 0.7));
             follow('out'); break;
           case 'SetText': {
             const t = targetEnt();
             const valText = p.bindVar ? String(getVar('global', p.bindVar) ?? '') : String(p.text || '');
-            if (t?.components?.UIElement) t.components.UIElement.text = valText;
-            if (t?.components?.TextRenderer) t.components.TextRenderer.text = valText;
+            this.setEntityText(t, evalDataInput(node,'value',valText));
             follow('out'); break;
           }
           case 'ShowElement': {
@@ -1669,6 +1832,17 @@ function createNexusRuntime(root) {
       runNode(startNode);
     }
 
+    playGameSound(name, volume = 0.7) {
+      const asset = this.project.assets?.[name];
+      if (asset?.type === 'audio' && asset.dataUrl) {
+        const sound = new root.Audio(asset.dataUrl);
+        sound.volume = Math.max(0,Math.min(1,volume));
+        sound.play().catch(error => this.onLog('Sound: ' + error.message,'warn'));
+      } else {
+        this.audio.playPreset(asset?.synth ? 'custom' : name, volume, 1, asset?.synth);
+      }
+    }
+
     _flushPendingEntities() {
       if (this.pendingDestroy.size > 0) {
         for (const id of this.pendingDestroy) {
@@ -1681,14 +1855,14 @@ function createNexusRuntime(root) {
         this.pendingDestroy.clear();
       }
       if (this.pendingAdd.length > 0) {
-        for (const ne of this.pendingAdd) {
+        const additions = this.pendingAdd.splice(0, 128);
+        for (const ne of additions) {
           this.entities.push(ne);
           this._initEntityState(ne);
           this.updateTransforms();
           this.triggerEntityEvent(ne, 'OnStart', {});
           this.triggerEntityEvent(ne, 'OnCreated', {});
         }
-        this.pendingAdd = [];
       }
     }
 
@@ -1824,6 +1998,14 @@ function createNexusRuntime(root) {
 
       // Screen-space Game UI Overlay
       this._renderUI(ctx, vw, vh);
+      if (this.result) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(5,10,18,.82)'; ctx.fillRect(0,0,vw,vh);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#e8f4ff';
+        ctx.font = 'bold 28px sans-serif'; ctx.fillText(this.result === 'lose' ? 'Game Over' : 'Game Complete',vw/2,vh/2-10);
+        ctx.font = '15px sans-serif'; ctx.fillText('Tap to restart',vw/2,vh/2+26);
+        ctx.restore();
+      }
       ctx.restore();
     }
 
@@ -1889,7 +2071,8 @@ function createNexusRuntime(root) {
 
     _getUIRect(ui, vw, vh) {
       let x = ui.x || 0, y = ui.y || 0;
-      const w = ui.width || 100, h = ui.height || 40;
+      const w = ui.widthPercent > 0 ? vw * Math.min(100,ui.widthPercent)/100 : ui.width || 100;
+      const h = ui.heightPercent > 0 ? vh * Math.min(100,ui.heightPercent)/100 : ui.height || 40;
       if (ui.anchor === 'top-right') x = vw - w - x;
       else if (ui.anchor === 'bottom-left') y = vh - h - y;
       else if (ui.anchor === 'bottom-right') { x = vw - w - x; y = vh - h - y; }
@@ -1917,12 +2100,12 @@ function createNexusRuntime(root) {
           ctx.fillStyle = ui.color || '#ffffff';
           ctx.font = 'bold 14px sans-serif';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(label, r.x + r.w * 0.5, r.y + r.h * 0.5);
+          ctx.fillText(label, r.x + r.w * 0.5, r.y + r.h * 0.5, Math.max(1,r.w-12));
         } else if (ui.uiType === 'text') {
           ctx.fillStyle = ui.color || '#ffffff';
           ctx.font = 'bold 16px sans-serif';
           ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-          ctx.fillText(label, r.x, r.y);
+          ctx.fillText(label, r.x, r.y, Math.max(1,r.w));
         } else if (ui.uiType === 'progress') {
           let cur = ui.value ?? 100, mx = ui.maxValue || 100;
           if (ui.bindVar && this.project.variables?.[ui.bindVar] !== undefined) cur = Number(this.project.variables[ui.bindVar]);
@@ -1960,8 +2143,15 @@ function createNexusRuntime(root) {
     }
 
     _bindInput() {
-      this._onKeyDown = (e) => this.keys.add(e.code);
-      this._onKeyUp = (e) => this.keys.delete(e.code);
+      const keyEvent = (type, event) => {
+        if (!this.paused && !this.result) for (const entity of [...this.entities])
+          this.triggerEntityEvent(entity,type,{eventName:event.code});
+      };
+      this._onKeyDown = event => {
+        if (this.result && (event.code === 'Enter' || event.code === 'Space')) { this.restartGame(); return; }
+        if (!this.keys.has(event.code)) { this.keys.add(event.code); keyEvent('OnKeyPressed',event); }
+      };
+      this._onKeyUp = event => { this.keys.delete(event.code); keyEvent('OnKeyReleased',event); };
       window.addEventListener('keydown', this._onKeyDown);
       window.addEventListener('keyup', this._onKeyUp);
       if (!this.canvas) return;
@@ -1969,6 +2159,9 @@ function createNexusRuntime(root) {
       const handlePointer = (e, type) => {
         e.preventDefault();
         this.audio.unlock();
+        if (this.result) { if (type === 'down') this.restartGame(); return; }
+        if (this.paused && type !== 'up') return;
+        if (type === 'down') this.canvas.setPointerCapture?.(e.pointerId);
         const pt = this._toGameCoords(e.clientX, e.clientY);
         const vw = this.project.settings?.width || 360, vh = this.project.settings?.height || 640;
 
@@ -1983,10 +2176,8 @@ function createNexusRuntime(root) {
             if (pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
               hitUI = true;
               if (ui.uiType === 'button') {
-                if (ui.eventName === 'jump') this.virtualAxes.jump = true;
-                else {
-                  for (const all of [...this.entities]) this.triggerEntityEvent(all, 'OnButtonPress', { eventName: ui.eventName || 'btn_click' });
-                }
+                if (ui.eventName === 'jump') { this.virtualAxes.jump = true; this.jumpPointer = e.pointerId; }
+                for (const all of [...this.entities]) this.triggerEntityEvent(all, 'OnButtonPress', { eventName: ui.eventName || 'btn_click' });
               } else if (ui.uiType === 'joystick') {
                 this.joystickTouches.set(e.pointerId, { rect: r });
                 this._updateJoystick(r, pt.x, pt.y);
@@ -2017,7 +2208,7 @@ function createNexusRuntime(root) {
           }
         } else if (type === 'up') {
           this.pointer.down = false;
-          this.virtualAxes.jump = false;
+          if (this.jumpPointer === e.pointerId) { this.virtualAxes.jump = false; this.jumpPointer = null; }
           if (this.joystickTouches.has(e.pointerId)) {
             this.joystickTouches.delete(e.pointerId);
             this.virtualAxes.x = 0;
@@ -2237,7 +2428,7 @@ const ComponentSchemas = {
   ParticleEmitter: { enabled: true, emitting: true, rate: 16, lifetime: 0.7, speed: 65, spread: 0.9, direction: -1.57, gravity: -15, startSize: 6, endSize: 1, startColor: '#f97316', endColor: '#fde047', maxParticles: 60 },
   Tilemap: { enabled: true, tileSize: 32, cols: 12, rows: 20, assetId: 'builtin_tileset', tilesPerRow: 4, tiles: new Array(240).fill(0), collisionIds: [1, 2, 3] },
   ScriptBehavior: { enabled: true, graphId: '', source: '' },
-  UIElement: { enabled: true, uiType: 'button', anchor: 'top-left', x: 16, y: 16, width: 110, height: 40, text: 'Button', color: '#ffffff', bgColor: '#2563eb', value: 100, maxValue: 100, bindVar: '', eventName: 'btn_click', visible: true },
+  UIElement: { enabled: true, uiType: 'button', anchor: 'top-left', x: 16, y: 16, width: 110, height: 40, widthPercent: 0, heightPercent: 0, text: 'Button', color: '#ffffff', bgColor: '#2563eb', value: 100, maxValue: 100, bindVar: '', eventName: 'btn_click', visible: true },
   CharacterController: { enabled: true, mode: 'platformer', speed: 180, jumpForce: 340, doubleJump: true, coyoteTime: 0.12, jumpBuffer: 0.12, accel: 1200, decel: 900, steering: 3.2 },
   Health: { enabled: true, current: 100, max: 100, invulnTime: 0.4 },
   TriggerZone: { enabled: true, tag: 'goal', oneShot: false },
@@ -2249,6 +2440,27 @@ const ComponentSchemas = {
 
 const NodeCatalog = [
   // Events
+  ...[
+    ['OnSceneStart', {}], ['OnGameEnd', {eventName:''}], ['OnMessage',{eventName:'message'}],
+    ['OnKeyPressed',{eventName:'Space'}], ['OnKeyReleased',{eventName:'Space'}]
+  ].map(([type,params]) => ({type,params,cat:'Events',color:'#dc2626',in:[],out:['out']})),
+  ...[
+    ['Broadcast',['in','value'],['out'],{eventName:'message',value:''}],
+    ['EndGame',['in'],[],{outcome:'win'}], ['RestartGame',['in'],[],{}],
+    ['SaveGame',['in'],['success','failure'],{slot:'slot1'}],
+    ['LoadGame',['in'],['success','failure'],{slot:'slot1'}],
+    ['Log',['in','value'],['out'],{value:'Hello'}]
+  ].map(([type,input,out,params]) => ({type,params,cat:'Control',color:'#7c3aed',in:input,out})),
+  ...[
+    ['ListAppend',['in','value'],['out'],{scope:'global',key:'items',value:''}],
+    ['ListRemove',['in','index'],['out'],{scope:'global',key:'items',index:0}],
+    ['ListClear',['in'],['out'],{scope:'global',key:'items'}],
+    ['ListGet',['index'],['val'],{scope:'global',key:'items',index:0}],
+    ['ListLength',[],['val'],{scope:'global',key:'items'}],
+    ['Literal',[],['val'],{value:'true'}], ['EventValue',[],['val'],{}],
+    ['JoinText',['a','b'],['val'],{a:'Hello ',b:'world'}],
+    ['KeyHeld',[],['val'],{code:'ArrowRight'}]
+  ].map(([type,input,out,params]) => ({type,params,cat:'Data',color:'#0284c7',in:input,out})),
   { type: 'OnStart', cat: 'Events', color: '#dc2626', in: [], out: ['out'], params: {} },
   { type: 'OnUpdate', cat: 'Events', color: '#dc2626', in: [], out: ['out'], params: {} },
   { type: 'OnFixedUpdate', cat: 'Events', color: '#dc2626', in: [], out: ['out'], params: {} },
@@ -2267,7 +2479,7 @@ const NodeCatalog = [
   { type: 'And', cat: 'Logic', color: '#7c3aed', in: ['a', 'b'], out: ['res'], params: {} },
   { type: 'Or', cat: 'Logic', color: '#7c3aed', in: ['a', 'b'], out: ['res'], params: {} },
   { type: 'Not', cat: 'Logic', color: '#7c3aed', in: ['in'], out: ['res'], params: {} },
-  { type: 'Loop', cat: 'Logic', color: '#7c3aed', in: ['in'], out: ['body', 'done'], params: { count: 3 } },
+  { type: 'Loop', cat: 'Logic', color: '#7c3aed', in: ['in','count'], out: ['body', 'done'], params: { count: 3 } },
   { type: 'Delay', cat: 'Logic', color: '#7c3aed', in: ['in'], out: ['out'], params: { seconds: 1.0 } },
   { type: 'Sequence', cat: 'Logic', color: '#7c3aed', in: ['in'], out: ['out1', 'out2'], params: {} },
   // Math
@@ -2290,7 +2502,7 @@ const NodeCatalog = [
   { type: 'DecVariable', cat: 'Variables', color: '#d97706', in: ['in'], out: ['out'], params: { scope: 'global', key: 'score', amount: 1 } },
   // Audio / UI / Anim
   { type: 'PlaySound', cat: 'Audio', color: '#db2777', in: ['in'], out: ['out'], params: { preset: 'coin', volume: 0.7 } },
-  { type: 'SetText', cat: 'UI', color: '#4f46e5', in: ['in'], out: ['out'], params: { targetName: '', text: 'Hello!', bindVar: '' } },
+  { type: 'SetText', cat: 'UI', color: '#4f46e5', in: ['in','value'], out: ['out'], params: { targetName: '', text: 'Hello!', bindVar: '' } },
   { type: 'ShowElement', cat: 'UI', color: '#4f46e5', in: ['in'], out: ['out'], params: { targetName: '' } },
   { type: 'HideElement', cat: 'UI', color: '#4f46e5', in: ['in'], out: ['out'], params: { targetName: '' } },
   { type: 'PlayAnimation', cat: 'Animation', color: '#9333ea', in: ['in'], out: ['out'], params: { target: 'self', clipId: '' } }
@@ -2765,13 +2977,85 @@ const Templates = (() => {
     return p;
   }
 
+  function checkpointCampaign() {
+    const project = platformer();
+    project.id = 'campaign_' + Date.now();
+    project.name = 'Checkpoint Campaign';
+    const main = project.scenes[0];
+    const levels = [main,...[2,3].map(number => JSON.parse(JSON.stringify(main)))];
+    levels.forEach((scene,index) => {
+      scene.id = 'campaign_level_'+(index+1);
+      scene.name = 'Level '+(index+1);
+      scene.bgColor = ['#0f172a','#172338','#25182d'][index];
+      if (index > 0) {
+        const map = scene.entities.find(entity => entity.id === 'e_tm').components.Tilemap;
+        for (let col = 2; col < 7; col++) map.tiles[(15-index)*map.cols+col] = 2;
+        const flag = scene.entities.find(entity => entity.id === 'e_goal');
+        flag.components.Transform.x = index === 1 ? 160 : 192;
+        flag.components.Transform.y = (15-index)*map.tileSize-24;
+      }
+      const player = scene.entities.find(entity => entity.id === 'e_plr');
+      if (player) {
+        player.components.ScriptBehavior ||= {enabled:true};
+        player.components.ScriptBehavior.pythonSource = 'def on_event(event, dt, game):\n    if event == "OnStart":\n        game["set_var"]("level", '+(index+1)+')\n';
+      }
+      const graph = 'campaign_goal_'+index;
+      const goal = scene.entities.find(entity => entity.id === 'e_goal');
+      goal.components.ScriptBehavior.graphId = graph;
+      project.graphs[graph] = {
+        id:graph,name:'Finish '+scene.name,
+        nodes:[
+          {id:'a',type:'OnTriggerEnter',x:0,y:20,params:{filterTag:'player'}},
+          {id:'b',type:index===2?'EndGame':'ChangeScene',x:300,y:20,params:index===2?{outcome:'win'}:{sceneName:'campaign_level_'+(index+2)}}
+        ],
+        edges:[{id:'a_b',fromNode:'a',fromPort:'out',toNode:'b',toPort:'in'}]
+      };
+      scene.entities.push(ent('save_button','Checkpoint',0,0,{UIElement:{enabled:true,uiType:'button',anchor:'top-right',x:10,y:12,width:100,height:36,text:'SAVE',eventName:'checkpoint'},ScriptBehavior:{enabled:true,graphId:'campaign_save'}}));
+    });
+    const button = (id,label,y,eventName) => ent(id,label,0,0,{UIElement:{enabled:true,uiType:'button',anchor:'center',x:0,y,width:190,height:50,text:label,eventName}});
+    project.graphs.campaign_menu = {
+      id:'campaign_menu',name:'Menu Actions',
+      nodes:[
+        {id:'start',type:'OnButtonPress',x:0,y:0,params:{eventName:'start'}},
+        {id:'open',type:'ChangeScene',x:290,y:0,params:{sceneName:'campaign_level_1'}},
+        {id:'continue',type:'OnButtonPress',x:0,y:170,params:{eventName:'continue'}},
+        {id:'load',type:'LoadGame',x:290,y:170,params:{slot:'campaign'}},
+        {id:'empty',type:'SetText',x:560,y:170,params:{targetName:'Title',text:'No checkpoint yet'}}
+      ],
+      edges:[['start','out','open'],['continue','out','load'],['load','failure','empty']].map(([fromNode,fromPort,toNode]) => ({id:fromNode,fromNode,fromPort,toNode,toPort:'in'}))
+    };
+    project.graphs.campaign_save = {
+      id:'campaign_save',name:'Save checkpoint',
+      nodes:[
+        {id:'pressed',type:'OnButtonPress',x:0,y:0,params:{eventName:'checkpoint'}},
+        {id:'save',type:'SaveGame',x:290,y:0,params:{slot:'campaign'}},
+        {id:'saved',type:'SetText',x:570,y:0,params:{text:'SAVED'}}
+      ],
+      edges:[['pressed','out','save'],['save','success','saved']].map(([fromNode,fromPort,toNode]) => ({id:fromNode,fromNode,fromPort,toNode,toPort:'in'}))
+    };
+    const title = (label,y) => ent('title','Title',0,0,{UIElement:{enabled:true,uiType:'panel',bgColor:'#192d46',anchor:'center',x:0,y,width:240,height:36,text:label,color:'#e8f4ff'}});
+    const start = button('start','START',12,'start');
+    start.components.ScriptBehavior = {enabled:true,graphId:'campaign_menu'};
+    const retry = button('retry','BACK TO MENU',24,'retry');
+    retry.components.ScriptBehavior = {enabled:true,pythonSource:'def on_event(event, dt, game):\n    if event == "OnButtonPress" and game["event_name"] == "retry":\n        game["change_scene"]("campaign_menu_scene")\n'};
+    project.scenes = [
+      {id:'campaign_menu_scene',name:'Main Menu',bgColor:'#111e32',entities:[title('CHECKPOINT CAMPAIGN',-66),start,button('continue','CONTINUE',80,'continue')]},
+      ...levels,
+      {id:'campaign_finish',name:'Finish',bgColor:'#101f32',entities:[title('CAMPAIGN COMPLETE',-55),retry]}
+    ];
+    project.activeSceneId = levels[0].id;
+    Object.assign(project.settings,{startSceneId:'campaign_menu_scene',endSceneId:'campaign_finish'});
+    return project;
+  }
+
   return [
     { name: '1. Platformer', desc: 'Tilemap, Jump, Coins, Patrol Enemy', build: platformer },
     { name: '2. Top-Down RPG', desc: 'NPC Dialogue, Gems, Scene Portal', build: topDown },
     { name: '3. Endless Runner', desc: 'Auto Obstacles, Score, Jump', build: endlessRunner },
     { name: '4. Space Shooter', desc: 'Prefabs, Lasers, Alien Waves', build: spaceShooter },
     { name: '5. Puzzle Game', desc: 'Touch Grid, Logic, Win Check', build: puzzleGame },
-    { name: '6. Racing Game', desc: 'Vehicle Physics, Track, Laps', build: racingGame }
+    { name: '6. Racing Game', desc: 'Vehicle Physics, Track, Laps', build: racingGame },
+    { name: 'Checkpoint Campaign', desc: 'Main menu, three levels, Python and local saves', build: checkpointCampaign }
   ];
 })();
 
@@ -2783,6 +3067,7 @@ const App = (() => {
     project: null,
     activeSceneId: null,
     selectedEntityId: null,
+    breakpoints: new Set(),
     selectedGraphId: null,
     selectedNodeId: null,
     wiringFrom: null,
@@ -2878,7 +3163,7 @@ const App = (() => {
     if (!state.undoStack.length) return toast('Nothing to undo', 'warn');
     state.redoStack.push(JSON.stringify(state.project));
     state.project = JSON.parse(state.undoStack.pop());
-    refreshAll();
+    reloadAfterHistory();
     toast('Undid change');
   }
 
@@ -2886,8 +3171,18 @@ const App = (() => {
     if (!state.redoStack.length) return toast('Nothing to redo', 'warn');
     state.undoStack.push(JSON.stringify(state.project));
     state.project = JSON.parse(state.redoStack.pop());
-    refreshAll();
+    reloadAfterHistory();
     toast('Redid change');
+  }
+
+  function reloadAfterHistory() {
+    if (!state.project.scenes.some(scene => scene.id === state.activeSceneId)) {
+      state.activeSceneId = state.project.scenes[0]?.id;
+    }
+    state.imgCache.clear();
+    preloadEditorAssets();
+    document.getElementById('hdr-title').textContent = state.project.name;
+    refreshAll();
   }
 
   // --- Project Lifecycle ---
@@ -2904,7 +3199,7 @@ const App = (() => {
   function preloadEditorAssets() {
     if (!state.project?.assets) return;
     for (const a of Object.values(state.project.assets)) {
-      if (a.dataUrl) {
+      if (a.type !== 'audio' && a.dataUrl) {
         const img = new Image();
         img.src = a.dataUrl;
         state.imgCache.set(a.id, img);
@@ -2916,10 +3211,12 @@ const App = (() => {
     state.project = proj;
     if (!state.project.assets) state.project.assets = BuiltinAssets.getDefaults();
     state.activeSceneId = proj.activeSceneId || proj.scenes[0]?.id;
-    state.selectedEntityId = proj.scenes[0]?.entities[0]?.id || null;
+    state.selectedEntityId = getActiveScene()?.entities[0]?.id || null;
     state.selectedGraphId = Object.keys(proj.graphs || {})[0] || null;
     state.undoStack = [];
     state.redoStack = [];
+    state.breakpoints.clear();
+    state.imgCache.clear();
     preloadEditorAssets();
     document.getElementById('hdr-title').textContent = proj.name;
     refreshAll();
@@ -3018,12 +3315,18 @@ const App = (() => {
     refreshUIBuilder();
     refreshAnimEditor();
     refreshGlobalVars();
+    refreshTilemapEditor();
+    if (document.getElementById('ws-logic').classList.contains('active')) {
+      if (pythonMode) renderPythonEditor();
+      else renderNodeInspector();
+    }
   }
 
   // --- Home & Projects List ---
   function refreshHomeSettings() {
     const p = state.project;
     if (!p) return;
+    p.settings ||= {width:360,height:640,gravityY:600};
     document.getElementById('set-proj-name').value = p.name;
     document.getElementById('set-vp-w').value = p.settings.width;
     document.getElementById('set-vp-h').value = p.settings.height;
@@ -3032,7 +3335,16 @@ const App = (() => {
     document.getElementById('set-pixel-perfect').checked = !!p.settings.pixelPerfect;
     document.getElementById('set-autosave').checked = state.autosave;
     const sel = document.getElementById('set-active-scene');
-    sel.innerHTML = p.scenes.map(s => `<option value="${s.id}" ${s.id === state.activeSceneId ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+    sel.replaceChildren(...p.scenes.map(scene => new Option(scene.name, scene.id)));
+    sel.value = getActiveScene()?.id || '';
+    for (const [id, value, fallback] of [
+      ['set-start-scene', p.settings.startSceneId, 'Use active scene'],
+      ['set-end-scene', p.settings.endSceneId, 'Show built-in result screen']
+    ]) {
+      const list = document.getElementById(id);
+      list.replaceChildren(new Option(fallback, ''), ...p.scenes.map(scene => new Option(scene.name, scene.id)));
+      list.value = p.scenes.some(scene => scene.id === value) ? value : '';
+    }
   }
 
   async function refreshProjectsList() {
@@ -3467,7 +3779,7 @@ const App = (() => {
       const ttl = document.createElement('span');
       ttl.textContent = cName;
       left.appendChild(ttl);
-      const help = document.createElement('button'); help.className='btn btn-sm'; help.textContent='!'; help.title=cName+' component: enable, disable, and edit its properties'; help.onclick=()=>toast(help.title); left.appendChild(help);
+      const help = document.createElement('button'); help.className='help-dot'; help.textContent='!'; help.title=cName+' component: enable, disable, and edit its properties'; help.onclick=()=>toast(help.title); left.appendChild(help);
       titleRow.appendChild(left);
 
       if (cName !== 'Transform') {
@@ -3482,10 +3794,20 @@ const App = (() => {
       grid.className = 'grid-2';
 
       for (const [k, v] of Object.entries(comp)) {
-        if (k === 'enabled' || k === 'tiles' || k === 'collisionIds' || k === 'pythonSource') continue;
+        if (k === 'enabled' || k === 'tiles' || k === 'pythonSource') continue;
+        if (cName === 'Tilemap' && k === 'collisionIds') {
+          const field = document.createElement('label'); field.textContent = 'Solid tile IDs';
+          const input = document.createElement('input'); input.className = 'input'; input.value = v.join(', ');
+          input.onchange = () => {
+            if (!/^\s*(?:\d+\s*(?:,\s*\d+\s*)*)?$/.test(input.value)) { input.value = comp[k].join(', '); return; }
+            pushUndo(); comp[k] = [...new Set(input.value.split(',').filter(x => x.trim()).map(Number))];
+          };
+          field.append(input); grid.append(field); continue;
+        }
+        if (cName === 'Tilemap' && ['cols','rows','tileSize'].includes(k)) continue;
         const f = document.createElement('div');
         f.className = 'field';
-        f.innerHTML = `<label>${esc(k)} <button class="btn btn-sm" type="button" title="Edit ${esc(k)} on ${esc(cName)}">!</button></label>`;
+        f.innerHTML = `<label>${esc(k)} <button class="help-dot" type="button" aria-label="About ${esc(k)}">!</button></label>`;
         f.querySelector('button').onclick=()=>toast('Property '+k+' of '+cName+': current value '+String(comp[k]));
 
         if (k === 'source' && cName === 'ScriptBehavior') {
@@ -3493,7 +3815,7 @@ const App = (() => {
           const tools=document.createElement('div');tools.className='row';tools.style.cssText='flex-wrap:wrap;margin-bottom:6px';
           const check=document.createElement('button');check.className='btn btn-sm btn-primary';check.textContent='✓ Validate & Save';
           const search=document.createElement('input');search.className='input';search.style.cssText='width:120px;min-width:70px';search.placeholder='Find in script';
-          const docs=document.createElement('button');docs.className='btn btn-sm';docs.textContent='? API & Syntax';
+          const docs=document.createElement('button');docs.className='help-dot';docs.textContent='!';docs.setAttribute('aria-label','API and syntax');
           const status=document.createElement('div');status.className='muted';status.setAttribute('role','status');
           const area=document.createElement('div');area.className='script-code-area';
           const lines=document.createElement('pre');lines.className='script-lines';lines.setAttribute('aria-hidden','true');
@@ -3511,7 +3833,7 @@ const App = (() => {
         if (k === 'assetId') {
           const sel = document.createElement('select');
           sel.innerHTML = `<option value="">(None)</option>` + Object.values(state.project.assets || {}).map(a => `<option value="${a.id}" ${v === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
-          sel.onchange = () => { pushUndo(); comp[k] = sel.value; drawSceneEditor(); };
+          sel.onchange = () => { pushUndo(); comp[k] = sel.value; drawSceneEditor(); if(cName === 'Tilemap') refreshTilemapEditor(); };
           f.appendChild(sel);
         } else if (k === 'graphId') {
           const sel = document.createElement('select');
@@ -3560,6 +3882,10 @@ const App = (() => {
         grid.appendChild(f);
       }
       card.appendChild(grid);
+      if (cName === 'Tilemap') {
+        const resize = document.createElement('button'); resize.className = 'btn btn-sm'; resize.textContent = 'Resize map';
+        resize.onclick = () => openTilemapSettings(false, ent); card.append(resize);
+      }
       body.appendChild(card);
     }
   }
@@ -3724,6 +4050,128 @@ const App = (() => {
     };
   }
 
+  const blockDescriptions = {
+    OnStart:'Runs when this object is created, including when the scene loads.',
+    OnSceneStart:'Runs once for each object already present when a scene opens.',
+    OnGameEnd:'Runs before the result screen or configured end scene appears.',
+    OnUpdate:'Runs once per rendered frame. Use for game behavior and UI updates.',
+    OnFixedUpdate:'Runs at fixed time intervals. Use for physics and forces.',
+    OnCollision:'Runs when a solid collision is detected. Other is the object you hit.',
+    OnTriggerEnter:'Runs when another object enters a trigger.', OnTriggerExit:'Runs when the overlap ends.',
+    OnButtonPress:'Runs when a game UI button with the matching event name is pressed.',
+    OnTouch:'Runs when a player touches this object in the world.',
+    OnTimer:'Runs when the object’s Timer reaches its duration.',
+    OnAnimComplete:'Runs when a non-looping animation completes.',
+    OnCreated:'Runs when an object is added to the scene at runtime.',
+    OnDestroyed:'Runs before this object is removed.',
+    OnMessage:'Runs for a matching Broadcast. Connect EventValue to read the payload.',
+    OnKeyPressed:'Runs once when the key is pressed.', OnKeyReleased:'Runs when the key is released.',
+    Broadcast:'Queues a named message for Python scripts and blocks on objects in this scene.',
+    EndGame:'Ends the current game with a win or loss. Opens the configured end scene or a built-in result screen.',
+    RestartGame:'Restarts from the configured start scene and resets runtime global variables.',
+    SaveGame:'Stores the scene and global variables in a local save slot.',
+    LoadGame:'Loads global variables and opens the scene recorded in the slot.',
+    If:'Runs the true or false branch using the connected condition or named variable comparison.',
+    Loop:'Runs Body repeatedly, up to 30 times, and then runs Done.',
+    Delay:'Waits for game time to pass before running the next block.',
+    Sequence:'Runs the first branch, then the second.',
+    MathOp:'Calculates a numeric result from A and B.',
+    Compare:'Compares A and B and returns true or false.', And:'True if both inputs are true.',
+    Or:'True if either input is true.', Not:'Flips a boolean value.',
+    CreateObject:'Spawns a Prefab relative to this object.', DestroyObject:'Removes the target object.',
+    MoveObject:'Adds X and Y displacement to the target’s position.',
+    RotateObject:'Adds an angle in radians to the target.',
+    ScaleObject:'Sets X and Y scale factors.',
+    SetPosition:'Sets the target’s absolute X and Y coordinates.',
+    GetPosition:'Reads one position axis from this object or the event’s other object.',
+    SetVelocity:'Sets the target’s velocity in pixels per second.',
+    ApplyForce:'Adds to the target’s velocity. The target needs a RigidBody.',
+    DamageEntity:'Reduces the target’s Health and respects invulnerability.',
+    ChangeScene:'Queues a scene switch after the current frame.',
+    SetVariable:'Stores a value under a name.', GetVariable:'Reads a named value.',
+    IncVariable:'Adds an amount to a number.', DecVariable:'Subtracts an amount from a number.',
+    ListAppend:'Adds a value to the end of a list.', ListRemove:'Removes the item at a zero-based index.',
+    ListClear:'Empties a list.', ListGet:'Reads the value at a zero-based index.',
+    ListLength:'Returns the number of items in the list.',
+    Literal:'Provides a constant. Accepts JSON numbers, strings, booleans, lists and objects.',
+    JoinText:'Combines two values as text.', KeyHeld:'Returns whether a key or corresponding movement control is held.',
+    EventValue:'Outputs the current message’s payload.', Log:'Writes a value to the debug console.',
+    PlaySound:'Plays a built-in preset or imported audio asset.',
+    SetText:'Updates a UI label or TextRenderer. A connected Value overrides the default.',
+    ShowElement:'Shows the selected UI element or object.', HideElement:'Hides the selected UI element or object.',
+    PlayAnimation:'Starts the target’s AnimationPlayer with the selected clip.'
+  };
+
+  function parameterHelp(name) {
+    return ({
+      target:'Self means the object running this graph. Other means the object supplied by the event, such as the object you collided with. Named object uses Target name.',
+      targetName:'The exact name of another object in this scene. Leave empty to use Self or Other.',
+      scope:'Global is shared across scenes. Scene belongs to the current scene instance. Object belongs to this object.',
+      key:'The variable or list name used to store and read a value.', varKey:'Optional variable to compare. Leave blank to use a connected input.',
+      op:'Selects the math or comparison operation.', value:'Default data used when no wire supplies the Value input.',
+      eventName:'Exact event name to match. On a receiving event, leaving it empty accepts every name.',
+      filterTag:'Only respond to other objects carrying this tag. Leave empty to accept any object.',
+      seconds:'Game time to wait before sending the flow output.', count:'Default number of repetitions, capped at 30.',
+      slot:'Name of the local save slot. Use letters, digits, underscores or hyphens.',
+      index:'Position in a list, starting at zero.', outcome:'Win or loss result sent to the end scene.',
+      code:'Keyboard code such as Space, KeyW or ArrowRight.', sceneName:'Scene to open by its ID or exact name.',
+      prefabId:'Reusable object template to spawn.', clipId:'Animation clip to play.',
+      preset:'Built-in sound or imported audio asset.', bindVar:'Optional global variable whose value becomes the text.',
+      perSecond:'Treat displacement as pixels per second and scale by the event interval.',
+      dx:'Horizontal displacement.', dy:'Vertical displacement.', x:'Horizontal position in pixels.', y:'Vertical position in pixels.',
+      vx:'Horizontal velocity in pixels per second.', vy:'Vertical velocity in pixels per second.',
+      fx:'Horizontal velocity added to the body.', fy:'Vertical velocity added to the body.',
+      offsetX:'Spawn distance from the source on the horizontal axis.', offsetY:'Spawn distance from the source on the vertical axis.',
+      amount:'Amount added, subtracted or applied as damage.', volume:'Sound volume from 0 to 1.',
+      a:'First input or default operand.', b:'Second input or default operand.', axis:'Choose the horizontal X or vertical Y position.',
+      angle:'Rotation added in radians.', sx:'Horizontal scale multiplier.', sy:'Vertical scale multiplier.',
+      text:'Default label text.'
+    })[name] || 'This setting is used when the block runs.';
+  }
+
+  function helpButton(label, action) {
+    const button = document.createElement('button');
+    button.className = 'help-dot'; button.type = 'button'; button.textContent = '!';
+    button.setAttribute('aria-label',label); button.title = label; button.onclick = action;
+    return button;
+  }
+
+  function blockChoices(key,type) {
+    const simple = (...values) => values.map(value => [value,value]);
+    const labels = list => list.map(item => [item.id,item.name]);
+    if (key === 'scope') return [['global','Global · whole game'],['scene','Scene · current level'],['object','Object · this object']];
+    if (key === 'target') return [['self','Self · this object'],['other','Other · event object']];
+    if (key === 'targetName') return [['','Use Self / Other'], ...(getActiveScene()?.entities || []).map(entity => [entity.name,entity.name])];
+    if (key === 'sceneName') return labels(state.project.scenes);
+    if (key === 'prefabId') return [['','Choose prefab'],...labels(Object.values(state.project.prefabs || {}))];
+    if (key === 'clipId') return [['','Use current clip'],...labels(Object.values(state.project.animations || {}))];
+    if (key === 'outcome') return [['win','Win'],['lose','Lose']];
+    if (key === 'axis') return simple('x','y');
+    if (key === 'preset') return [...simple(...Object.keys(new NexusRuntime.AudioEngine().presets)),...labels(Object.values(state.project.assets || {}).filter(asset => asset.type === 'audio'))];
+    if (key === 'op') return type === 'MathOp' ? simple('+','-','*','/','%','**','abs','floor','round','min','max','random','clamp','lerp','sin','cos') : simple('==','!=','>','<','>=','<=');
+    return null;
+  }
+
+  function openBlockHelp(type) {
+    const block = NodeCatalog.find(definition => definition.type === type);
+    if (!block) return;
+    const section = (title, entries) => '<h3>'+title+'</h3>' + (entries.length ?
+      '<dl>'+entries.map(([label,detail]) => '<dt><strong>'+esc(label)+'</strong></dt><dd>'+esc(detail)+'</dd>').join('')+'</dl>' :
+      '<p class="muted">None</p>');
+    const inputs = block.in.map(port => [port,port === 'in' && type !== 'Not' ? 'Flow input. Runs this block when the previous block reaches it.' :
+      port === 'cond' || type === 'Not' ? 'Boolean input. Connect a comparison or another boolean value.' : parameterHelp(port)]);
+    const outputs = block.out.map(port => [port,({
+      res:'Data output. Connect it to a data input to use the result.', val:'Data output. Connect it to a data input to read the value.',
+      true:'Flow when the condition is true.', false:'Flow when the condition is false.',
+      body:'Flow for each iteration.', done:'Flow after the loop has finished.',
+      success:'Flow when the operation succeeds.', failure:'Flow if the slot is empty or the operation fails.',
+      out1:'First branch to run.', out2:'Second branch to run.'
+    })[port] || 'Flow output. Connect it to the next block’s In port.']);
+    showModal(type, '<p>'+esc(blockDescriptions[type] || type)+'</p>' +
+      section('Inputs',inputs) + section('Outputs',outputs) +
+      section('Settings',Object.keys(block.params).map(key => [key,parameterHelp(key)])),[{label:'Close'}]);
+  }
+
   function renderNodeInspector() {
     const bar = document.getElementById('node-inspector-bar');
     const g = getActiveGraph();
@@ -3732,13 +4180,30 @@ const App = (() => {
     bar.style.display = 'block';
     bar.innerHTML = `<div class="row-between" style="margin-bottom:6px;"><strong>Node: ${esc(n.type)}</strong><button class="btn btn-sm btn-err" id="del-node-btn">Delete Node</button></div><div class="grid-2" id="node-params-grid"></div>`;
     const explain=document.createElement('pre');explain.className='mono';explain.style.whiteSpace='pre-wrap';explain.textContent=nodePythonPreview(n);bar.insertBefore(explain,bar.querySelector('#node-params-grid'));
-    const info=document.createElement('button');info.className='btn btn-sm';info.textContent='! Node help';info.onclick=()=>toast(n.type+': '+(NodeCatalog.find(d=>d.type===n.type)?.cat||'Logic')+' node. The preview is descriptive, not executable Python.');bar.insertBefore(info,explain);
+    const stop = document.createElement('button');
+    const breakpoint = g.id+':'+n.id;
+    stop.className = 'btn btn-sm';
+    stop.textContent = state.breakpoints.has(breakpoint) ? 'Remove breakpoint' : 'Pause after block';
+    stop.onclick = () => {
+      if (!state.breakpoints.delete(breakpoint)) state.breakpoints.add(breakpoint);
+      renderNodeInspector();
+    };
+    bar.querySelector('strong').after(helpButton('Block help', () => openBlockHelp(n.type)),stop);
     const grid = bar.querySelector('#node-params-grid');
     for (const [k, v] of Object.entries(n.params || {})) {
       const f = document.createElement('div');
       f.className = 'field';
       f.innerHTML = `<label>${esc(k)}</label>`;
-      if (typeof v === 'boolean') {
+      f.querySelector('label').append(helpButton('About ' + k, () => showModal(k,esc(parameterHelp(k)),[{label:'Close'}])));
+      const choices = blockChoices(k,n.type);
+      if (choices) {
+        const select = document.createElement('select');
+        const options = choices.some(([value]) => value === v) ? choices : [[v,String(v)],...choices];
+        select.replaceChildren(...options.map(([value,label]) => new Option(label,value)));
+        select.value = v;
+        select.onchange = () => { pushUndo(); n.params[k] = select.value; drawGraphEditor(); };
+        f.appendChild(select);
+      } else if (typeof v === 'boolean') {
         const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = v;
         chk.onchange = () => { pushUndo(); n.params[k] = chk.checked; renderNodeInspector();drawGraphEditor(); };
         f.appendChild(chk);
@@ -3789,7 +4254,16 @@ const App = (() => {
           const pp = getPortPos(n, pName, false);
           if (Math.hypot(w.x - pp.x, w.y - pp.y) < 18 && state.wiringFrom) {
             if (state.wiringFrom.nodeId !== n.id) {
+              const source = g.nodes.find(node => node.id === state.wiringFrom.nodeId);
+              const sourceIsData = ['res','val'].includes(state.wiringFrom.port);
+              const destinationIsFlow = pName === 'in' && n.type !== 'Not';
+              if (!source || sourceIsData === destinationIsFlow) {
+                state.wiringFrom = null; drawGraphEditor(); toast('Connect flow to flow or data to data.', 'warn'); return;
+              }
+              const duplicate = g.edges.some(edge => edge.fromNode === source.id && edge.fromPort === state.wiringFrom.port && edge.toNode === n.id && edge.toPort === pName);
+              if (duplicate) { state.wiringFrom = null; drawGraphEditor(); return; }
               pushUndo();
+              if (!destinationIsFlow) g.edges = g.edges.filter(edge => edge.toNode !== n.id || edge.toPort !== pName);
               g.edges.push({ id: 'ed_' + Date.now(), fromNode: state.wiringFrom.nodeId, fromPort: state.wiringFrom.port, toNode: n.id, toPort: pName });
               toast('Connected!', 'ok');
             }
@@ -3869,6 +4343,7 @@ const App = (() => {
     tool: 'pencil',
     color: '#38bdf8',
     undo: [],
+    redo: [],
     shapeStart: null,
     palette: ['#000000','#ffffff','#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#78350f','#64748b']
   };
@@ -3877,10 +4352,28 @@ const App = (() => {
     pxState.size = sz;
     pxState.layers = [new Array(sz * sz).fill(null)];
     pxState.activeLayer = 0;
-    pxState.undo = [];
     document.getElementById('px-layer-idx').textContent = '1';
   }
   initPixelLayers(16);
+
+  function pixelSnapshot() {
+    return JSON.stringify({size:pxState.size,layers:pxState.layers,activeLayer:pxState.activeLayer});
+  }
+
+  function savePixelHistory() {
+    pxState.undo.push(pixelSnapshot());
+    if (pxState.undo.length > 25) pxState.undo.shift();
+    pxState.redo = [];
+  }
+
+  function restorePixelHistory(from,to) {
+    if (!from.length) return;
+    to.push(pixelSnapshot());
+    Object.assign(pxState,JSON.parse(from.pop()));
+    document.getElementById('px-layer-idx').textContent = pxState.activeLayer+1;
+    document.getElementById('px-size').value = pxState.size;
+    drawPixelEditor();
+  }
 
   (function buildPxPalette() {
     const pal = document.getElementById('px-palette');
@@ -3979,8 +4472,6 @@ const App = (() => {
       pxCanvas.setPointerCapture(e.pointerId);
       const pt = pixelCoords(e.clientX, e.clientY);
       if (!pt) return;
-      pxState.undo.push(JSON.stringify(pxState.layers));
-      if (pxState.undo.length > 25) pxState.undo.shift();
       const layer = pxState.layers[pxState.activeLayer];
       const sz = pxState.size;
       if (pxState.tool === 'pick') {
@@ -3988,6 +4479,7 @@ const App = (() => {
         if (c) { pxState.color = c; document.getElementById('px-color').value = c; toast('Picked ' + c); }
         return;
       }
+      savePixelHistory();
       if (pxState.tool === 'fill') {
         floodFillPx(layer, sz, pt.x, pt.y, pxState.color);
         drawPixelEditor(); return;
@@ -4046,14 +4538,87 @@ const App = (() => {
 
   // --- Tilemap Editor ---
   const tmCanvas = document.getElementById('tm-canvas');
-  const tmState = { tool: 'pencil', selectedTile: 1, undo: [] };
+  const tmState = { tool: 'pencil', selectedTile: 1, zoom: 1 };
+  function resizeTilemap(map, cols, rows, tileSize) {
+    const tiles = new Array(cols * rows).fill(0);
+    for (let row = 0; row < Math.min(rows, map.rows); row++) {
+      for (let col = 0; col < Math.min(cols, map.cols); col++) {
+        tiles[row * cols + col] = map.tiles[row * map.cols + col] || 0;
+      }
+    }
+    Object.assign(map, {cols, rows, tileSize, tiles});
+  }
+
+  function openTilemapSettings(assistant = false, entity = getActiveTilemapEntity()) {
+    if (!entity) return toast('Add a tilemap first.', 'warn');
+    const map = entity.components.Tilemap;
+    const body = document.createElement('div');
+    body.innerHTML = `<div class="grid-2">
+      <label>Columns<input class="input" id="tm-cols" type="number" min="1" max="128" value="${Number(map.cols)}"></label>
+      <label>Rows<input class="input" id="tm-rows" type="number" min="1" max="128" value="${Number(map.rows)}"></label>
+      <label>Tile size (px)<input class="input" id="tm-pixels" type="number" min="4" max="256" value="${Number(map.tileSize)}"></label>
+      </div><div class="muted" id="tm-size-status" role="status"></div>`.replaceAll('\$', '$');
+    const status = body.querySelector('#tm-size-status');
+    if (assistant) {
+      const label = document.createElement('label');
+      label.textContent = 'Describe the map size or layout';
+      const prompt = document.createElement('textarea');
+      prompt.className = 'input';
+      prompt.placeholder = 'Try: 40 x 24, 32 px tiles, platformer';
+      label.appendChild(prompt);
+      body.prepend(label);
+      const suggest = document.createElement('button');
+      suggest.className = 'btn btn-sm';
+      suggest.textContent = 'Suggest settings';
+      label.after(suggest);
+      suggest.onclick = () => {
+        const words = prompt.value.toLowerCase();
+        const dimensions = words.match(/(\d+)\s*[x×]\s*(\d+)/);
+        const columns = words.match(/(\d+)\s*(?:cols|columns)/);
+        const rows = words.match(/(\d+)\s*rows/);
+        const pixels = words.match(/(\d+)\s*(?:px|pixel)/);
+        const preset = words.includes('platform') ? [40,18] : words.includes('arena') ? [24,24] : words.includes('wide') ? [36,20] : words.includes('small') ? [12,12] : [];
+        const values = [dimensions?.[1] || columns?.[1] || preset[0], dimensions?.[2] || rows?.[1] || preset[1], pixels?.[1]];
+        if (!values.some(Boolean)) { status.textContent = 'Use a size like 40 × 24 or a layout like platformer, arena, wide or small.'; return; }
+        ['#tm-cols','#tm-rows','#tm-pixels'].forEach((id, index) => {
+          if (values[index]) body.querySelector(id).value = values[index];
+        });
+        status.textContent = 'Review the suggestion and apply it.';
+      };
+    }
+    showModal(assistant ? 'Offline map assistant' : 'Tilemap size', body, [
+      {label:'Cancel'},
+      {label:'Apply size', cls:'btn-primary', onClick: () => {
+        const [cols, rows, size] = ['#tm-cols','#tm-rows','#tm-pixels'].map(id => body.querySelector(id).valueAsNumber);
+        if (![cols, rows, size].every(Number.isInteger) || cols < 1 || rows < 1 || cols > 128 || rows > 128 || size < 4 || size > 256) {
+          status.textContent = 'Use 1–128 rows and columns and a tile size of 4–256 pixels.'; return;
+        }
+        if (cols !== map.cols || rows !== map.rows || size !== map.tileSize) {
+          pushUndo(); resizeTilemap(map, cols, rows, size); refreshTilemapEditor(); drawSceneEditor();
+        }
+        closeModal();
+      }}
+    ]);
+  }
+
+  function tilemapLayout(map) {
+    const wrap = tmCanvas.parentElement;
+    const base = Math.max(2, Math.min((wrap.clientWidth - 20) / map.cols,(wrap.clientHeight - 20) / map.rows));
+    const cell = Math.min(64, base * tmState.zoom);
+    return {cell, ox: 10, oy: 10};
+  }
 
   function getActiveTilemapEntity() {
     const sc = getActiveScene();
-    return sc ? sc.entities.find(e => e.components.Tilemap) : null;
+    return sc ? sc.entities.find(e => e.id === state.selectedEntityId && e.components.Tilemap) || sc.entities.find(e => e.components.Tilemap) : null;
   }
 
   function refreshTilemapEditor() {
+    const selector = document.getElementById('tm-select');
+    const layers = (getActiveScene()?.entities || []).filter(entity => entity.components.Tilemap);
+    selector.replaceChildren(...layers.map(entity => new Option(entity.name,entity.id)));
+    selector.value = getActiveTilemapEntity()?.id || '';
+    selector.disabled = !layers.length;
     const pal = document.getElementById('tm-palette');
     pal.innerHTML = '';
     const labels = ['Empty','Grass','Brick','Crate','Spike','Metal','Neon','Dirt'];
@@ -4069,7 +4634,15 @@ const App = (() => {
   }
 
   function drawTilemapEditor() {
-    resizeCanvas(tmCanvas);
+    const wrap = tmCanvas.parentElement;
+    if (!wrap.clientWidth || !wrap.clientHeight) return;
+    const map = getActiveTilemapEntity()?.components.Tilemap;
+    const size = map ? tilemapLayout(map).cell : 0;
+    tmCanvas.style.width = Math.max(wrap.clientWidth, 20 + size * (map?.cols || 0)) + 'px';
+    tmCanvas.style.height = Math.max(wrap.clientHeight, 20 + size * (map?.rows || 0)) + 'px';
+    const dprLimit = Math.min(window.devicePixelRatio || 1, 2, 4096 / Math.max(tmCanvas.clientWidth,tmCanvas.clientHeight));
+    const width = Math.floor(tmCanvas.clientWidth * dprLimit), height = Math.floor(tmCanvas.clientHeight * dprLimit);
+    if (tmCanvas.width !== width || tmCanvas.height !== height) { tmCanvas.width = width; tmCanvas.height = height; }
     const ctx = tmCanvas.getContext('2d');
     const r = tmCanvas.getBoundingClientRect();
     if (!r.width || !r.height) return;
@@ -4083,8 +4656,7 @@ const App = (() => {
       ctx.restore(); return;
     }
     const tm = ent.components.Tilemap;
-    const cell = Math.min((r.width - 20) / tm.cols, (r.height - 20) / tm.rows);
-    const ox = (r.width - cell * tm.cols) * 0.5, oy = 10;
+    const {cell, ox, oy} = tilemapLayout(tm);
     const img = state.imgCache.get(tm.assetId);
     const tpr = tm.tilesPerRow || 4;
 
@@ -4104,13 +4676,12 @@ const App = (() => {
   }
 
   (function bindTilemapTouch() {
-    let painting = false, startCell = null;
+    let painting = false, startCell = null, pointer = null, previous = null;
     const cellAt = (cx, cy) => {
       const ent = getActiveTilemapEntity();
       if (!ent) return null;
       const tm = ent.components.Tilemap, r = tmCanvas.getBoundingClientRect();
-      const cell = Math.min((r.width - 20) / tm.cols, (r.height - 20) / tm.rows);
-      const ox = (r.width - cell * tm.cols) * 0.5, oy = 10;
+      const {cell, ox, oy} = tilemapLayout(tm);
       const c = Math.floor((cx - r.left - ox) / cell), row = Math.floor((cy - r.top - oy) / cell);
       return (c >= 0 && row >= 0 && c < tm.cols && row < tm.rows) ? { c, row, tm } : null;
     };
@@ -4119,17 +4690,18 @@ const App = (() => {
       hit.tm.tiles[hit.row * hit.tm.cols + hit.c] = val;
     };
     tmCanvas.addEventListener('pointerdown', (e) => {
+      if (tmState.tool === 'pan') return;
       e.preventDefault();
       const hit = cellAt(e.clientX, e.clientY);
-      if (!hit) return;
+      if (!hit || pointer !== null) return;
       pushUndo();
       if (tmState.tool === 'fill') {
         const tgt = hit.tm.tiles[hit.row * hit.tm.cols + hit.c];
         const val = tmState.selectedTile;
         if (tgt !== val) {
           const q = [[hit.c, hit.row]], seen = new Set();
-          while (q.length) {
-            const [c, r] = q.shift(), idx = r * hit.tm.cols + c;
+          for (let cursor = 0; cursor < q.length; cursor++) {
+            const [c, r] = q[cursor], idx = r * hit.tm.cols + c;
             if (c < 0 || r < 0 || c >= hit.tm.cols || r >= hit.tm.rows || seen.has(idx) || hit.tm.tiles[idx] !== tgt) continue;
             seen.add(idx); hit.tm.tiles[idx] = val;
             q.push([c+1,r],[c-1,r],[c,r+1],[c,r-1]);
@@ -4137,16 +4709,31 @@ const App = (() => {
         }
         drawTilemapEditor(); return;
       }
+      pointer = e.pointerId;
+      tmCanvas.setPointerCapture(pointer);
       if (tmState.tool === 'rect' || tmState.tool === 'line') { startCell = hit; painting = true; return; }
-      painting = true; paint(hit); drawTilemapEditor();
+      painting = true; previous = hit; paint(hit); drawTilemapEditor();
     });
     tmCanvas.addEventListener('pointermove', (e) => {
-      if (!painting || tmState.tool === 'rect' || tmState.tool === 'line') return;
+      if (e.pointerId !== pointer || !painting || tmState.tool === 'rect' || tmState.tool === 'line') return;
       e.preventDefault();
       const hit = cellAt(e.clientX, e.clientY);
-      if (hit) { paint(hit); drawTilemapEditor(); }
+      if (hit) {
+        const from = previous || hit;
+        const steps = Math.max(Math.abs(hit.c - from.c), Math.abs(hit.row - from.row), 1);
+        for (let step = 1; step <= steps; step++) {
+          paint({tm:hit.tm, c:Math.round(from.c + (hit.c-from.c)*step/steps), row:Math.round(from.row+(hit.row-from.row)*step/steps)});
+        }
+        previous = hit;
+        drawTilemapEditor();
+      }
+    });
+    tmCanvas.addEventListener('pointercancel', event => {
+      if (event.pointerId === pointer) { pointer = null; painting = false; startCell = null; previous = null; }
     });
     tmCanvas.addEventListener('pointerup', (e) => {
+      if (e.pointerId !== pointer) return;
+      pointer = null; previous = null;
       if (painting && startCell) {
         const end = cellAt(e.clientX, e.clientY) || startCell;
         const tm = startCell.tm, val = tmState.selectedTile;
@@ -4273,13 +4860,17 @@ const App = (() => {
       if (q && !a.name.toLowerCase().includes(q)) continue;
       const card = document.createElement('div');
       card.className = 'card'; card.style.marginBottom = '0'; card.style.padding = '8px'; card.style.textAlign = 'center';
-      if (a.dataUrl) card.innerHTML = `<img src="${a.dataUrl}" style="width:42px;height:42px;image-rendering:pixelated;object-fit:contain;"><div class="muted" style="margin-top:4px;">${esc(a.name)}</div>`;
+      if (a.type !== 'audio' && /^data:image\//.test(a.dataUrl || '')) card.innerHTML = `<img src="${esc(a.dataUrl)}" style="width:42px;height:42px;image-rendering:pixelated;object-fit:contain;"><div class="muted" style="margin-top:4px;">${esc(a.name)}</div>`;
       else card.innerHTML = `<div style="font-size:24px;">🔊</div><div class="muted">${esc(a.name)}</div>`;
       const addB = document.createElement('button');
       addB.className = 'btn btn-sm'; addB.style.width = '100%'; addB.style.marginTop = '5px';
       addB.textContent = a.type === 'audio' ? 'Play' : '+ Scene';
       addB.onclick = () => {
-        if (a.type === 'audio') { new NexusRuntime.AudioEngine().playPreset('custom', 0.8, 1, a.synth); return; }
+        if (a.type === 'audio') {
+          if (a.dataUrl) new Audio(a.dataUrl).play().catch(error => toast(error.message,'err'));
+          else new NexusRuntime.AudioEngine().playPreset('custom',0.8,1,a.synth);
+          return;
+        }
         const sc = getActiveScene();
         if (!sc) return;
         pushUndo();
@@ -4330,19 +4921,29 @@ const App = (() => {
     const rt = new NexusRuntime.GameRuntime(state.project, canvas, {
       debugDraw: document.getElementById('dbg-phys-draw').checked,
       onLog: (m, l) => log(m, l),
-      onGraphTrace: () => {}
+      onGraphTrace: (graphId,nodeId,entity) => {
+        const key = graphId+':'+nodeId;
+        if (!state.breakpoints.has(key) || rt.breakpointHit) return;
+        rt.breakpointHit = (state.project.graphs[graphId]?.nodes.find(node => node.id === nodeId)?.type || nodeId) + ' · ' + entity.name;
+        rt.paused = true;
+        document.getElementById('prev-pause').textContent = '▶ Resume';
+        document.getElementById('preview-debug-hud').style.display = 'block';
+        log('Breakpoint after current frame: '+rt.breakpointHit);
+      }
     });
-    rt.init(state.activeSceneId);
+    rt.init(state.project.settings.startSceneId || state.activeSceneId);
+    const pausedOnStart = rt.paused;
     rt.start();
+    rt.paused = pausedOnStart;
     state.previewRuntime = rt;
-    document.getElementById('prev-pause').textContent = '⏸ Pause';
+    document.getElementById('prev-pause').textContent = rt.paused ? '▶ Resume' : '⏸ Pause';
 
     state._prevStatsTimer = setInterval(() => {
       if (!state.previewRuntime) return;
       const r = state.previewRuntime;
       const hud = document.getElementById('preview-debug-hud');
       const mem = performance.memory ? ` | ${(performance.memory.usedJSHeapSize / 1048576).toFixed(1)}MB` : '';
-      hud.textContent = `FPS: ${r.fps.toFixed(0)} | Ents: ${r.entities.length} | Draw: ${r.drawCalls} | Parts: ${r.particles.length}${mem}`;
+      hud.textContent = (r.breakpointHit ? 'Breakpoint: '+r.breakpointHit+'\n' : '') + `FPS: ${r.fps.toFixed(0)} | Ents: ${r.entities.length} | Draw: ${r.drawCalls} | Parts: ${r.particles.length}${mem}`;
       refreshProfilerStats();
     }, 250);
   }
@@ -4366,8 +4967,8 @@ const App = (() => {
       row.className = 'row-between'; row.style.marginBottom = '6px';
       row.innerHTML = `<span class="mono">${esc(k)}</span>`;
       const inp = document.createElement('input');
-      inp.className = 'input'; inp.style.width = '120px'; inp.value = String(v);
-      inp.onchange = () => { state.project.variables[k] = isNaN(Number(inp.value)) ? inp.value : Number(inp.value); };
+      inp.className = 'input'; inp.style.width = '120px'; inp.value = typeof v === 'string' ? v : JSON.stringify(v);
+      inp.onchange = () => { pushUndo(); try { state.project.variables[k] = JSON.parse(inp.value); } catch { state.project.variables[k] = inp.value; } };
       row.appendChild(inp);
       box.appendChild(row);
     }
@@ -4539,18 +5140,30 @@ const App = (() => {
 
   // --- Interactive Tutorial System ---
   const tutorialSteps = [
-    ['1. Create / Open', 'Choose a template or "New Blank Project" on Home.'],
-    ['2. Scene Editor', 'Tap Scene tab. Drag any object with one finger, or 2-finger pinch to zoom.'],
-    ['3. Edit Properties', 'Tap Inspect tab to modify Transform, Sprites, Physics, or add Components.'],
-    ['4. Visual Scripting', 'Open Logic tab. Tap output ● then input ● to connect nodes without coding.'],
-    ['5. Pixel & Tilemaps', 'Use Create tab to draw sprites, paint tilemaps, animate keyframes, or synth audio.'],
-    ['6. Play & Export', 'Tap ▶ Play to test immediately, Save to IndexedDB, or Export standalone HTML!']
+    ['Project', 'Load the Checkpoint Campaign template on Home. Press Save to keep an editable copy on this device.', 'home'],
+    ['Scenes', 'Create and rename levels from Scene. Home → Game Start Scene sets the menu. Game End Scene can display a custom result.', 'scene'],
+    ['Inspector', 'Pick an object directly in Inspect. Add a Collider, RigidBody or ScriptBehavior. Small round ! buttons explain settings.', 'inspect'],
+    ['Blocks', 'In Logic, choose a graph. OnStart or OnMessage starts flow. Connect Out → In, then connect data outputs such as Val to Value. Tap ! on the selected block to read each port.', 'logic'],
+    ['Variables', 'Global follows the player across scenes. Scene resets when the level reloads. Object keeps its own value. Lists can hold inventory items.', 'logic'],
+    ['Python', 'Open Logic → Python, choose an object and apply a script with on_event. Use game["broadcast"] to send a message to an OnMessage block.', 'logic'],
+    ['Tilemaps', 'Go to Create → Tilemap. Pick a layer and use Paint or Fill. Map size preserves the overlapping cells. Undo rolls back a stroke or resize.', 'create'],
+    ['Assets and animation', 'Import images or audio from Assets & Prefabs. Choose a sprite sheet in Inspect and set its columns and rows. Use Animation to add keyframes.', 'create'],
+    ['HUD and touch', 'Add a button, label or joystick from Create → UI Builder. In Inspect set the anchor, dimensions and event name.', 'create'],
+    ['Save and finish', 'Connect SaveGame to your checkpoint, LoadGame to Continue, and EndGame to the final goal. Test the failure branch with an empty slot.', 'logic'],
+    ['Debug', 'Press Play, toggle Debug for collision bounds and tap Step for one frame. Pause after block stops at the end of the current frame.', 'debug'],
+    ['Export', 'Home can export editable ZIP, standalone HTML or an offline Android APK. Use the same signing key when distributing game updates.', 'home']
   ];
 
   function showTutorialStep(idx) {
     const bar = document.getElementById('tutorial-bar');
     if (idx < 0 || idx >= tutorialSteps.length) { bar.classList.remove('open'); state.tutorialStep = -1; return; }
     state.tutorialStep = idx;
+    switchWorkspace(tutorialSteps[idx][2]);
+    if (tutorialSteps[idx][0] === 'Tilemaps') document.querySelector('[data-sub="tilemap"]').click();
+    if (tutorialSteps[idx][0] === 'Python') setPythonMode(true);
+    if (tutorialSteps[idx][0] === 'Blocks') setPythonMode(false);
+    if (tutorialSteps[idx][0] === 'Assets and animation') document.querySelector('[data-sub="assets"]').click();
+    if (tutorialSteps[idx][0] === 'HUD and touch') document.querySelector('[data-sub="ui"]').click();
     document.getElementById('tut-step-title').textContent = tutorialSteps[idx][0];
     document.getElementById('tut-step-desc').textContent = tutorialSteps[idx][1];
     bar.classList.add('open');
@@ -4654,7 +5267,7 @@ def on_event(event, dt, game):
     };
     document.getElementById('python-help').onclick = () => {
       const help = document.createElement('div');
-      help.textContent = 'Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
+      help.textContent = 'Game API: game["get_var"](name, scope), set_var(name, value, scope), broadcast(name, value), change_scene(name), end_game("win"), spawn(prefab_id, dx, dy), play_sound(name), set_text(object_name, text), save(slot) and load(slot). Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
       showModal('Python game API', help, [{label:'Close'}]);
     };
     document.getElementById('python-save').onclick = () => {
@@ -4707,7 +5320,7 @@ def on_event(event, dt, game):
   async function exportGameHTML(asApk = false) {
     try {
       const name = state.project.name || 'Nexus Game';
-      const orientation = state.project.settings?.orientation;
+      const orientation = state.project.settings?.orientation || (state.project.settings?.width > state.project.settings?.height ? 'landscape' : 'portrait');
       const html = await buildGameHTML();
       if (asApk === true) {
         sendNative({kind: 'apk', name, orientation, html});
@@ -4722,8 +5335,55 @@ def on_event(event, dt, game):
   }
 
   // --- Event Wiring ---
+  function openChoiceList(select) {
+    if (select.disabled) return;
+    const body = document.createElement('div');
+    const search = document.createElement('input');
+    search.className = 'input'; search.placeholder = 'Search options'; search.setAttribute('aria-label','Search options');
+    const list = document.createElement('div');
+    list.id = 'option-list'; list.setAttribute('role','listbox');
+    const fill = () => {
+      list.replaceChildren();
+      for (const option of select.options) {
+        if (option.hidden || option.disabled || !option.text.toLowerCase().includes(search.value.toLowerCase())) continue;
+        const row = document.createElement('button');
+        row.className = 'btn option-row';
+        row.textContent = option.text;
+        row.setAttribute('role','option');
+        row.setAttribute('aria-selected',String(option.selected));
+        row.onclick = () => {
+          const changed = select.selectedIndex !== option.index;
+          select.selectedIndex = option.index;
+          closeModal();
+          if (changed) select.dispatchEvent(new Event('change',{bubbles:true}));
+          if (select.isConnected) select.focus();
+        };
+        list.appendChild(row);
+      }
+      if (!list.childElementCount) list.textContent = 'No matching options.';
+    };
+    search.oninput = fill;
+    body.append(search,list);
+    fill();
+    const title = select.getAttribute('aria-label') || select.closest('.field')?.querySelector('label')?.textContent?.trim() || 'Choose an option';
+    showModal(title,body,[{label:'Cancel'}]);
+  }
+
   function bindEvents() {
     bindPythonEditor();
+    document.addEventListener('pointerdown', event => {
+      if (event.target instanceof HTMLSelectElement && !event.target.multiple && !event.target.closest('#modal-body')) event.preventDefault();
+    });
+    document.addEventListener('click', event => {
+      if (event.target instanceof HTMLSelectElement && !event.target.multiple && !event.target.closest('#modal-body')) {
+        event.preventDefault(); openChoiceList(event.target);
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.target instanceof HTMLSelectElement && !event.target.closest('#modal-body') && ['Enter',' ','ArrowDown','ArrowUp'].includes(event.key)) {
+        event.preventDefault(); openChoiceList(event.target);
+      }
+    });
     const apk = document.getElementById('btn-export-apk');
     apk.hidden = !window.NexusNative;
     apk.onclick = () => exportGameHTML(true);
@@ -4739,14 +5399,24 @@ def on_event(event, dt, game):
     document.getElementById('btn-redo').onclick = redo;
     document.getElementById('btn-save').onclick = () => saveCurrentProject(false);
     document.getElementById('btn-play').onclick = startPreview;
+    document.getElementById('prev-step').onclick = () => {
+      const runtime = state.previewRuntime;
+      if (!runtime || runtime.result) return;
+      runtime.paused = true;
+      document.getElementById('prev-pause').textContent = '▶ Resume';
+      runtime.breakpointHit = null;
+      runtime.step(runtime.fixedDt);
+      runtime.render();
+    };
     document.getElementById('prev-stop').onclick = stopPreview;
     document.getElementById('prev-pause').onclick = () => {
       if (!state.previewRuntime) return;
       state.previewRuntime.paused = !state.previewRuntime.paused;
+      if (!state.previewRuntime.paused) state.previewRuntime.breakpointHit = null;
       document.getElementById('prev-pause').textContent = state.previewRuntime.paused ? '▶ Resume' : '⏸ Pause';
     };
     document.getElementById('prev-restart').onclick = () => {
-      if (state.previewRuntime) state.previewRuntime.loadScene(state.activeSceneId);
+      if (state.previewRuntime) { state.previewRuntime.breakpointHit = null; state.previewRuntime.restartGame(); }
     };
     document.getElementById('prev-dbg-toggle').onclick = () => {
       if (!state.previewRuntime) return;
@@ -4754,10 +5424,16 @@ def on_event(event, dt, game):
       const hud = document.getElementById('preview-debug-hud');
       hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
     };
-    document.getElementById('prev-fs').onclick = () => {
-      const el = document.getElementById('preview-overlay');
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-      else el.requestFullscreen?.().catch(() => toast('Fullscreen not supported here', 'warn'));
+    document.getElementById('prev-device').onclick = () => {
+      const stage = document.getElementById('preview-stage');
+      const choices = [['Fit',null],['Phone portrait',[360,640]],['Phone landscape',[640,360]],['Tablet',[640,480]]];
+      const index = (Number(stage.dataset.device || 0)+1) % choices.length;
+      stage.dataset.device = String(index);
+      const [name,size] = choices[index];
+      const canvas = document.getElementById('preview-canvas');
+      canvas.style.maxWidth = size ? 'min(100%, '+size[0]+'px)' : '';
+      canvas.style.maxHeight = size ? 'min(100%, '+size[1]+'px)' : '';
+      document.getElementById('prev-device').textContent = name;
     };
 
     // Home actions
@@ -4768,7 +5444,6 @@ def on_event(event, dt, game):
     document.getElementById('btn-export-proj-json').onclick = exportProjectZIP;
     document.getElementById('btn-import-proj').onclick = () => document.getElementById('file-import-json').click();
     document.getElementById('file-import-json').onchange = async ev => {const file=ev.target.files[0];if(!file)return;try{await importProjectZIP(file);}catch(err){toast('ZIP import failed: '+err.message,'err');}ev.target.value='';};
-    document.getElementById('btn-editor-fs').onclick = () => {if(window.NexusNative){sendNative({kind:'fullscreen'});return;}if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen?.().catch(()=>toast('Fullscreen unavailable','warn'));};
     document.getElementById('btn-export-game').onclick = exportGameHTML;
     document.getElementById('btn-export-game-2').onclick = exportGameHTML;
     document.getElementById('btn-refresh-projs').onclick = refreshProjectsList;
@@ -4785,12 +5460,60 @@ def on_event(event, dt, game):
     // Settings bindings
     document.getElementById('set-proj-name').onchange = (e) => { state.project.name = e.target.value; document.getElementById('hdr-title').textContent = e.target.value; };
     document.getElementById('set-active-scene').onchange = (e) => { state.activeSceneId = e.target.value; refreshAll(); };
+    for (const [id, key] of [['set-start-scene','startSceneId'], ['set-end-scene','endSceneId']]) {
+      document.getElementById(id).onchange = event => { pushUndo(); state.project.settings[key] = event.target.value; };
+    }
     document.getElementById('set-vp-w').onchange = (e) => { state.project.settings.width = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
     document.getElementById('set-vp-h').onchange = (e) => { state.project.settings.height = Math.max(160, Number(e.target.value)); drawSceneEditor(); };
     document.getElementById('set-grav-y').onchange = (e) => { state.project.settings.gravityY = Number(e.target.value); };
     document.getElementById('set-quality').onchange = (e) => { state.project.settings.quality = e.target.value; };
     document.getElementById('set-pixel-perfect').onchange = (e) => { state.project.settings.pixelPerfect = e.target.checked; };
     document.getElementById('set-autosave').onchange = (e) => { state.autosave = e.target.checked; };
+
+    document.getElementById('batch-objects').onclick = () => {
+      const scene = getActiveScene();
+      if (!scene?.entities.length) return toast('No objects in this scene.');
+      const body = document.createElement('div');
+      for (const entity of scene.entities.filter(entity => !entity.locked && entity.components.Transform)) {
+        const item = document.createElement('label');
+        item.className = 'row entity-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox'; checkbox.value = entity.id;
+        checkbox.checked = entity.id === state.selectedEntityId;
+        item.append(checkbox,document.createTextNode(entity.name));
+        body.append(item);
+      }
+      const apply = operation => {
+        const ids = new Set([...body.querySelectorAll('input:checked')].map(input => input.value));
+        const group = scene.entities.filter(entity => ids.has(entity.id));
+        if (!group.length) return toast('Select at least one object.','warn');
+        if (operation !== 'duplicate' && group.length < 2) return toast('Select two or more objects.','warn');
+        if (operation === 'space' && group.length < 3) return toast('Select at least three objects.','warn');
+        pushUndo();
+        if (operation === 'duplicate') {
+          const keys = new Map(group.map((entity,index) => [entity.id,'ent_'+Date.now()+'_'+index]));
+          for (const entity of group) {
+            const copy = JSON.parse(JSON.stringify(entity));
+            copy.id = keys.get(entity.id); copy.name += ' Copy';
+            copy.parentId = keys.get(entity.parentId) || entity.parentId;
+            if (!keys.has(entity.parentId)) copy.components.Transform.x += 20;
+            scene.entities.push(copy);
+          }
+        } else if (operation === 'space') {
+          group.sort((a,b) => a.components.Transform.x - b.components.Transform.x);
+          const start = group[0].components.Transform.x;
+          const end = group.at(-1).components.Transform.x;
+          group.forEach((entity,index) => entity.components.Transform.x = start+(end-start)*index/(group.length-1));
+        } else {
+          group.forEach(entity => entity.components.Transform[operation] = group[0].components.Transform[operation]);
+        }
+        closeModal(); refreshAll();
+      };
+      showModal('Arrange scene objects',body,[
+        {label:'Duplicate',onClick:() => apply('duplicate')},{label:'Align X',onClick:() => apply('x')},
+        {label:'Align Y',onClick:() => apply('y')},{label:'Space horizontally',onClick:() => apply('space')},{label:'Close'}
+      ]);
+    };
 
     // Scene Editor Controls
     document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
@@ -4915,17 +5638,20 @@ def on_event(event, dt, game):
       document.querySelectorAll('[data-pxtool]').forEach(x => x.classList.toggle('active', x === b));
     });
     document.getElementById('px-color').oninput = (e) => { pxState.color = e.target.value; };
-    document.getElementById('px-size').onchange = (e) => { initPixelLayers(Number(e.target.value)); drawPixelEditor(); };
-    document.getElementById('px-undo').onclick = () => { if (pxState.undo.length) { pxState.layers = JSON.parse(pxState.undo.pop()); drawPixelEditor(); } };
-    document.getElementById('px-clear').onclick = () => { pxState.layers[pxState.activeLayer].fill(null); drawPixelEditor(); };
-    document.getElementById('px-layer-add').onclick = () => { pxState.layers.push(new Array(pxState.size * pxState.size).fill(null)); pxState.activeLayer = pxState.layers.length - 1; document.getElementById('px-layer-idx').textContent = pxState.activeLayer + 1; };
+    document.getElementById('px-size').onchange = (e) => { savePixelHistory(); initPixelLayers(Number(e.target.value)); drawPixelEditor(); };
+    document.getElementById('px-undo').onclick = () => restorePixelHistory(pxState.undo,pxState.redo);
+    document.getElementById('px-redo').onclick = () => restorePixelHistory(pxState.redo,pxState.undo);
+    document.getElementById('px-clear').onclick = () => { savePixelHistory(); pxState.layers[pxState.activeLayer].fill(null); drawPixelEditor(); };
+    document.getElementById('px-layer-add').onclick = () => { savePixelHistory(); pxState.layers.push(new Array(pxState.size * pxState.size).fill(null)); pxState.activeLayer = pxState.layers.length - 1; document.getElementById('px-layer-idx').textContent = pxState.activeLayer + 1; };
     document.getElementById('px-layer-toggle').onclick = () => { pxState.activeLayer = (pxState.activeLayer + 1) % pxState.layers.length; document.getElementById('px-layer-idx').textContent = pxState.activeLayer + 1; };
     document.getElementById('px-flip-h').onclick = () => {
+      savePixelHistory();
       const l = pxState.layers[pxState.activeLayer], sz = pxState.size, n = [...l];
       for (let y = 0; y < sz; y++) for (let x = 0; x < sz; x++) l[y * sz + (sz - 1 - x)] = n[y * sz + x];
       drawPixelEditor();
     };
     document.getElementById('px-rot').onclick = () => {
+      savePixelHistory();
       const l = pxState.layers[pxState.activeLayer], sz = pxState.size, n = [...l];
       for (let y = 0; y < sz; y++) for (let x = 0; x < sz; x++) l[x * sz + (sz - 1 - y)] = n[y * sz + x];
       drawPixelEditor();
@@ -4935,7 +5661,8 @@ def on_event(event, dt, game):
       if (!name) return;
       const id = 'spr_' + Date.now();
       const dataUrl = renderPixelToDataUrl();
-      state.project.assets[id] = { id, name, type: 'sprite', width: 32, height: 32, dataUrl };
+      pushUndo();
+      state.project.assets[id] = { id, name, type: 'sprite', width: pxState.size, height: pxState.size, dataUrl };
       preloadEditorAssets(); refreshAssetsPanel();
       toast('Saved sprite asset: ' + name, 'ok');
     };
@@ -4946,8 +5673,12 @@ def on_event(event, dt, game):
     document.getElementById('px-import-png').onclick = () => document.getElementById('px-file-in').click();
     document.getElementById('px-file-in').onchange = (ev) => {
       const f = ev.target.files[0]; if (!f) return;
+      ev.target.value = '';
       const img = new Image();
+      const url = URL.createObjectURL(f);
       img.onload = () => {
+        URL.revokeObjectURL(url);
+        savePixelHistory();
         const c = document.createElement('canvas'); c.width = pxState.size; c.height = pxState.size;
         const cx = c.getContext('2d'); cx.drawImage(img, 0, 0, pxState.size, pxState.size);
         const d = cx.getImageData(0, 0, pxState.size, pxState.size).data;
@@ -4958,21 +5689,71 @@ def on_event(event, dt, game):
         }
         drawPixelEditor(); toast('Imported image into pixel canvas', 'ok');
       };
-      img.src = URL.createObjectURL(f);
+      img.onerror = () => { URL.revokeObjectURL(url); toast('Unable to open image.','err'); };
+      img.src = url;
     };
 
     // Tilemap Buttons
+    document.getElementById('tm-size').onclick = () => openTilemapSettings();
+    document.getElementById('tm-ai').onclick = () => openTilemapSettings(true);
+    document.getElementById('tm-undo').onclick = undo;
+    document.getElementById('tm-redo').onclick = redo;
+    document.getElementById('tm-zoom-in').onclick = () => { tmState.zoom = Math.min(12, tmState.zoom * 1.5); drawTilemapEditor(); };
+    document.getElementById('tm-zoom-out').onclick = () => { tmState.zoom = Math.max(1, tmState.zoom / 1.5); drawTilemapEditor(); };
     document.querySelectorAll('[data-tmtool]').forEach(b => b.onclick = () => {
       tmState.tool = b.dataset.tmtool;
+      document.getElementById('tm-canvas-wrap').classList.toggle('is-pan', tmState.tool === 'pan');
       document.querySelectorAll('[data-tmtool]').forEach(x => x.classList.toggle('active', x === b));
     });
+    const addTilemap = (name, map) => {
+      const scene = getActiveScene();
+      if (!scene) return;
+      const id = 'ent_tm_' + Date.now() + '_' + scene.entities.length;
+      scene.entities.unshift({id,name,parentId:null,visible:true,locked:false,tags:[],layer:0,variables:{},
+        components:{Transform:{...ComponentSchemas.Transform},Tilemap:map}});
+      state.selectedEntityId = id;
+    };
+    document.getElementById('tm-select').onchange = event => { state.selectedEntityId = event.target.value; refreshTilemapEditor(); };
     document.getElementById('tm-ensure').onclick = () => {
-      const sc = getActiveScene(); if (!sc) return;
-      if (!getActiveTilemapEntity()) {
+      if (!getActiveScene()) return;
+      pushUndo();
+      addTilemap('Tilemap ' + (getActiveScene().entities.filter(e => e.components.Tilemap).length + 1),
+        JSON.parse(JSON.stringify(ComponentSchemas.Tilemap)));
+      refreshTilemapEditor();
+    };
+    document.getElementById('tm-import').onclick = () => document.getElementById('tm-file').click();
+    document.getElementById('tm-file').onchange = async event => {
+      const file = event.target.files[0]; event.target.value = '';
+      if (!file) return;
+      try {
+        if (file.size > 5*1024*1024) throw Error('The map file is larger than 5 MB.');
+        const data = JSON.parse(await file.text());
+        if (data.orientation !== 'orthogonal' || data.infinite || data.tilewidth !== data.tileheight ||
+            ![data.width,data.height,data.tilewidth].every(Number.isInteger) ||
+            data.width < 1 || data.width > 128 || data.height < 1 || data.height > 128 ||
+            data.tilewidth < 4 || data.tilewidth > 256 || data.tilesets?.length !== 1) {
+          throw Error('Use a finite orthogonal map, square tiles and one tileset.');
+        }
+        const layers = (data.layers || []).filter(layer => layer.type === 'tilelayer');
+        const tileset = data.tilesets[0];
+        if (!layers.length || !Number.isInteger(tileset.firstgid) || tileset.firstgid < 1 ||
+            layers.some(layer => !Array.isArray(layer.data) || layer.width !== data.width ||
+            layer.height !== data.height || layer.data.length !== data.width * data.height ||
+            layer.data.some(tile => !Number.isInteger(tile) || tile < 0 || tile >= 0x10000000 || tile !== 0 && tile < tileset.firstgid))) {
+          throw Error('Export uncompressed JSON tile layers without rotated or flipped tiles.');
+        }
+        const map = getActiveTilemapEntity()?.components.Tilemap || ComponentSchemas.Tilemap;
         pushUndo();
-        sc.entities.unshift({ id: 'ent_tm_' + Date.now(), name: 'Tilemap', parentId: null, visible: true, locked: false, tags: [], layer: 0, variables: {}, components: { Transform: { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 }, Tilemap: JSON.parse(JSON.stringify(ComponentSchemas.Tilemap)) } });
-      }
-      refreshTilemapEditor(); toast('Tilemap ready', 'ok');
+        for (const layer of [...layers].reverse()) {
+          addTilemap(layer.name || 'Imported layer', {
+            ...map, cols:data.width, rows:data.height, tileSize:data.tilewidth,
+            tilesPerRow:tileset.columns || map.tilesPerRow,
+            tiles:layer.data.map(tile => tile ? tile-tileset.firstgid+1 : 0), collisionIds:[]
+          });
+        }
+        refreshTilemapEditor();
+        toast('Imported '+layers.length+' layers. Choose your tileset and collision IDs in Inspect.', 'ok');
+      } catch(error) { toast('Map import: '+error.message,'err'); }
     };
     document.getElementById('tm-export').onclick = () => {
       const ent = getActiveTilemapEntity(); if (!ent) return toast('No tilemap', 'warn');
@@ -5062,6 +5843,38 @@ def on_event(event, dt, game):
     });
 
     document.getElementById('asset-search').oninput = refreshAssetsPanel;
+    document.getElementById('asset-import').onclick = () => document.getElementById('asset-files').click();
+    document.getElementById('asset-files').onchange = async event => {
+      const files = [...event.target.files]; event.target.value = '';
+      if (!files.length || !state.project) return;
+      const project = state.project;
+      try {
+        if (files.reduce((total,file) => total+file.size,0) > 12*1024*1024) throw Error('Select up to 12 MB per import.');
+        const assets = await Promise.all(files.map(async (file,index) => {
+          const type = /^audio\//.test(file.type) ? 'audio' : /^image\//.test(file.type) ? 'image' : null;
+          if (!type) throw Error('Unsupported file: ' + file.name);
+          const dataUrl = await new Promise((resolve,reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(Error('Could not read '+file.name));
+            reader.readAsDataURL(file);
+          });
+          const asset = {id:'asset_'+Date.now()+'_'+index,name:file.name,type,dataUrl};
+          if (type === 'image') {
+            const image = new Image();
+            image.src = dataUrl;
+            await image.decode();
+            Object.assign(asset,{width:image.naturalWidth,height:image.naturalHeight});
+          }
+          return asset;
+        }));
+        if (project !== state.project) return;
+        pushUndo();
+        for (const asset of assets) project.assets[asset.id] = asset;
+        preloadEditorAssets(); refreshAll();
+        toast('Imported '+assets.length+' files','ok');
+      } catch(error) { toast('Import: '+error.message,'err'); }
+    };
 
     // Debug Subtabs
     document.querySelectorAll('#debug-subtabs .subtab').forEach(b => b.onclick = () => {
@@ -5071,7 +5884,7 @@ def on_event(event, dt, game):
     document.getElementById('btn-clear-logs').onclick = () => { state.logs = []; document.getElementById('console-logs').textContent = ''; };
     document.getElementById('btn-add-gvar').onclick = async () => {
       const k = await promptInput('New Global Variable', 'Variable Key:', 'health');
-      if (k) { state.project.variables[k] = 0; refreshGlobalVars(); }
+      if (k && !['__proto__','constructor','prototype'].includes(k)) { pushUndo(); state.project.variables[k] = 0; refreshGlobalVars(); }
     };
     document.getElementById('btn-run-tests').onclick = runAutomatedTests;
     document.getElementById('btn-run-audit').onclick = runProjectAudit;
@@ -5108,7 +5921,7 @@ def on_event(event, dt, game):
       const lastId = localStorage.getItem('nexus_last_proj');
       if (lastId) initial = await StorageManager.loadProject(lastId);
     } catch (_) {}
-    loadProjectIntoEditor(initial || Templates[0].build());
+    loadProjectIntoEditor(initial || Templates.find(template => template.name === '1. Platformer').build());
     refreshProjectsList();
     updateStorageChip();
 
