@@ -145,13 +145,14 @@ class MainActivity : FlutterActivity() {
     private fun makeWebView(context: Context): WebView {
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/flutter/") { path ->
-                val allowed = setOf("editor.html", "python.js", "vendor/skulpt.min.js",
+                val allowed = setOf("editor.html", "python.js", "apk.js", "player-template.json", "vendor/skulpt.min.js",
                     "vendor/skulpt-stdlib.js", "vendor/Skulpt-LICENSE.txt")
                 if (path !in allowed) null
                 else {
                     val mime = when {
                         path.endsWith(".html") -> "text/html"
                         path.endsWith(".js") -> "application/javascript"
+                        path.endsWith(".json") -> "application/json"
                         else -> "text/plain"
                     }
                     WebResourceResponse(mime, "UTF-8", assets.open("flutter_assets/assets/web/$path"))

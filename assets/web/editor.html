@@ -260,12 +260,37 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 #graph-toolbar .row{flex-wrap:nowrap}
 #graph-toolbar #btn-assign-graph[hidden]{display:none}
 @media(max-width:400px){#graph-toolbar .btn{padding-inline:5px;font-size:11px}}
+
+:root{--bg:#151820;--bg2:#20242e;--bg3:#292f3b;--bg4:#363e50;--border:#3c4558;--accent:#669afa;--accent2:#adc8ff;--radius:7px;--nav-h:48px}
+#topbar{height:auto;min-height:48px;background:#20242e}
+#studio-menu{margin-inline-end:5px}
+#app:not(.developing) #bottom-nav{display:none}
+#bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+#bottom-nav [data-ws=home]{display:none}
+.studio-home-head{display:grid;gap:10px;padding:clamp(14px,4vw,38px);margin-bottom:12px;background:linear-gradient(145deg,#20283a,#191d26 72%);border:1px solid #3d4b63;border-radius:12px}
+.studio-home-head h1{margin:0;font-size:clamp(25px,5vw,44px);letter-spacing:-.05em}
+.studio-home-head p{margin:0}
+#ws-home .scroll-y{width:min(100%,1080px);margin-inline:auto;padding:clamp(10px,2.8vw,24px)}
+#templates-list{grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))}
+#templates-list .card{display:flex;flex-direction:column;gap:5px;border-top:3px solid #668de6}
+#templates-list .btn{margin-top:auto}
+#studio-menu-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#graph-toolbar{flex-wrap:wrap}
+#graph-toolbar>div{flex-wrap:wrap}
+@media(orientation:landscape) and (max-height:540px){
+  :root{--nav-h:33px}
+  #topbar{min-height:38px;padding-block:3px}
+  #topbar .btn{min-height:30px}
+  #bottom-nav .nav-ico{display:none}
+  #ws-scene .canvas-wrap{min-height:0}
+  #modal-body{max-height:58dvh}
+}
 </style>
 </head>
 <body>
 <div id="app">
   <header id="topbar">
-    <div class="brand"><span class="brand-dot"></span><span id="hdr-title">NEXUS ENGINE</span></div>
+    <div class="brand"><button class="btn btn-sm btn-icon" id="studio-menu" aria-label="Open studio menu">☰</button><span id="hdr-title">Nexus Studio</span></div>
     <div class="top-actions">
       <button class="btn btn-sm btn-icon" id="btn-undo" aria-label="Undo" title="Undo">↶</button>
       <button class="btn btn-sm btn-icon" id="btn-redo" aria-label="Redo" title="Redo">↷</button>
@@ -286,13 +311,15 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     <!-- HOME DASHBOARD -->
     <section id="ws-home" class="workspace active">
       <div class="scroll-y">
-        <div class="card">
-          <div class="card-title"><span>NEXUS STUDIO</span><span class="chip" id="storage-chip">Storage: --</span></div>
-          <p class="muted" style="margin:0 0 10px;">Mobile-first 2D Game Engine. Build scenes, physics, pixel art, tilemaps, visual scripts, and export offline HTML games and Android APKs.</p>
+        <div class="studio-home-head">
+          <div class="row-between"><h1>Nexus Studio</h1><span class="chip" id="storage-chip">Storage: --</span></div>
+          <p class="muted" id="home-current"></p>
           <div class="grid-2">
             <button class="btn btn-primary" id="btn-new-proj">+ New Blank Project</button>
             <button class="btn" id="btn-import-proj">Import ZIP</button>
             <button class="btn btn-ok" id="btn-export-game">Export</button>
+            <button class="btn" id="open-development">Open editor</button>
+            <button class="btn" id="open-ai">Build with AI</button>
             <button class="btn" id="btn-export-library">Saved exports</button>
           </div>
           <div class="row" style="margin-top:8px;">
@@ -305,6 +332,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 
         <div class="card">
           <div class="card-title"><span>Playable Templates</span><span class="muted">Editable &amp; Exportable</span></div>
+          <input class="input" id="template-filter" placeholder="Search templates" aria-label="Search templates">
           <div id="templates-list" class="grid-2"></div>
         </div>
 
@@ -320,6 +348,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
             <div class="field"><label>Editing Scene</label><select id="set-active-scene"></select></div>
             <div class="field"><label>Game Start Scene</label><select id="set-start-scene"></select></div>
             <div class="field"><label>Game End Scene</label><select id="set-end-scene"></select></div>
+            <div class="field"><label>Viewport preset</label><select id="set-view-preset"><option value="">Custom size</option><option value="landscape">Landscape · 640 × 360</option><option value="portrait">Portrait · 360 × 640</option><option value="square">Square · 512 × 512</option></select></div>
             <div class="field"><label>Viewport Width</label><input class="input" type="number" id="set-vp-w"></div>
             <div class="field"><label>Viewport Height</label><input class="input" type="number" id="set-vp-h"></div>
             <div class="field"><label>Gravity Y</label><input class="input" type="number" id="set-grav-y"></div>
@@ -407,6 +436,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
         <div class="row" style="flex:1;min-width:0;">
           <select id="graph-selector" style="min-height:34px;max-width:160px;"></select>
           <button class="btn btn-sm" id="btn-new-graph">+ Script</button>
+          <button class="btn btn-sm" id="btn-custom-block">Make block</button>
         </div>
         <div class="row">
           <button class="btn btn-sm btn-primary" id="btn-add-node">+ Block</button>
@@ -564,6 +594,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
             <p class="muted">Adds responsive anchored UI widgets to the active scene. Customize text, variable bindings, and touch events in the Inspector.</p>
             <div class="grid-2">
               <button class="btn btn-sm" data-uipreset="button">+ Touch Button</button>
+              <button class="btn btn-sm" data-uipreset="restart">+ Restart Button</button>
               <button class="btn btn-sm" data-uipreset="text">+ Score/Text</button>
               <button class="btn btn-sm" data-uipreset="progress">+ Health Bar</button>
               <button class="btn btn-sm" data-uipreset="joystick">+ Virtual Joystick</button>
@@ -682,6 +713,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 <script src="vendor/skulpt-stdlib.js"></script>
 <script src="python.js"></script>
 <script src="apk.js"></script>
+<script src="ai.js"></script>
 <script>
 // ============================================================================
 // 1. SHARED STANDALONE GAME RUNTIME (USED BY PREVIEW + HTML EXPORTER)
@@ -956,7 +988,7 @@ function createNexusRuntime(root) {
   const scriptProperties = {
         Transform:['x','y','rotation','scaleX','scaleY'], RigidBody:['vx','vy','gravityScale'],
         SpriteRenderer:['frameIndex','opacity','flipX','flipY','assetId'], Collider:['enabled','isTrigger'],
-        Health:['current','max'], UIElement:['text','visible','value','maxValue'],
+        Health:['current','max'], UIElement:['text','visible','value','maxValue','x','y','width','height','color','bgColor','fontSize','radius','opacity','padding'],
         AnimationPlayer:['playing','speed','clipId'], ParticleEmitter:['emitting','rate'], Camera:['zoom','shake']
       };
   class GameRuntime {
@@ -1038,6 +1070,7 @@ function createNexusRuntime(root) {
       this.actionTouches = new Map();
       this.activeActions.clear();
       this.delayedTasks = [];
+      this.foreverBlocks = new Map();
       this.accumulator = 0;
       this.timers.clear();
       this.pendingDestroy.clear();
@@ -1202,7 +1235,11 @@ function createNexusRuntime(root) {
             for (const entity of [...this.entities]) this.triggerEntityEvent(entity, 'OnMessage', payload);
           }
         }
-        if (this.pendingWorld) {
+        if (this.restartRequested) {
+          this.restartRequested = false;
+          this.pendingWorld = null;
+          this.restartGame();
+        } else if (this.pendingWorld) {
           const saved = this.pendingWorld;
           this.pendingWorld = null;
           this.nextSceneId = null;
@@ -1524,6 +1561,12 @@ function createNexusRuntime(root) {
           const fn = this.delayedTasks.splice(i, 1)[0].fn;
           fn();
         }
+      }
+
+      this.loopDt = dt;
+      for (const [id,loop] of [...this.foreverBlocks]) {
+        if (!this.entityMap.has(loop.entityId) || this.pendingDestroy.has(loop.entityId)) this.foreverBlocks.delete(id);
+        else loop.run();
       }
 
       // Entity updates: Invuln, Animations, Particles, Scripts
@@ -1873,6 +1916,7 @@ function createNexusRuntime(root) {
                 this.variableStore(entity, scope)[key] = value;
             },
             change_scene: name => this.scheduleScene(name),
+            restart_game: () => { this.restartRequested = true; },
             end_game: result => this.finishGame(result),
             broadcast: (name, value) => this.broadcast(name, value, entity),
             spawn: (id, x, y) => this.spawnPrefab(id, entity, x, y),
@@ -2060,7 +2104,7 @@ function createNexusRuntime(root) {
           case 'EndGame':
             this.finishGame(p.outcome); break;
           case 'RestartGame':
-            this.delayedTasks.push({left:0.01, fn:() => this.restartGame()}); break;
+            this.restartRequested = true; break;
           case 'SaveGame': case 'LoadGame': {
             let success = false;
             try { success = this.gameSave(p.slot, node.type === 'LoadGame'); }
@@ -2086,6 +2130,47 @@ function createNexusRuntime(root) {
             const cond = p.varKey ? evaluateCompareParam(getVar(p.scope || 'global', p.varKey) ?? 0, p.op || '>=', p.value ?? 1)
               : !!evalDataInput(node, 'cond', false);
             follow(cond ? 'true' : 'false');
+            break;
+          }
+          case 'Forever': {
+            const id = JSON.stringify([selfEnt.id,graph.id,node.id]);
+            if (!this.foreverBlocks.has(id) && this.foreverBlocks.size < 256) {
+              const entry = {id:node.id+':body',type:'OnCall'};
+              const body = {...graph,nodes:[...graph.nodes,entry],edges:graph.edges.map(edge =>
+                edge.fromNode === node.id && edge.fromPort === 'body' ? {...edge,fromNode:entry.id,fromPort:'out'} : edge)};
+              this.foreverBlocks.set(id,{entityId:selfEnt.id,run:() => this._execFromNode(body,entry,selfEnt,{...payload,dt:this.loopDt})});
+            }
+            break;
+          }
+          case 'ForRange': case 'ForEach': case 'While': case 'RepeatUntil': {
+            const input = key => evalDataInput(node,key,p[key]);
+            const scope = p.scope || 'object', key = p.key || 'item';
+            let list = [];
+            if (node.type === 'ForEach') {
+              list = input('items');
+              if (typeof list === 'string') {
+                try { list = JSON.parse(list); } catch { list = []; }
+              }
+              list = Array.isArray(list) ? list.slice(0,100) : [];
+            }
+            const start = Number(input('start')), end = Number(input('end')), step = Number(input('step'));
+            const validRange = [start,end,step].every(Number.isFinite) && step !== 0;
+            const test = () => !!input('cond');
+            const complete = index => {
+              if (node.type === 'ForEach') return index >= list.length;
+              if (node.type === 'ForRange') return !validRange || (step>0 ? start+index*step>=end : start+index*step<=end);
+              return node.type === 'While' ? !test() : test();
+            };
+            let i = 0;
+            for (;i<100 && visitedSteps.count<visitedSteps.max;i++) {
+              if (complete(i)) break;
+              const value = start+i*step;
+              if (node.type === 'ForRange') setVar(scope,key,value);
+              if (node.type === 'ForEach') setVar(scope,key,list[i]);
+              follow('body');
+            }
+            if (complete(i)) follow('done');
+            else this.onLog('Loop paused at its execution limit. Use Forever for frame-by-frame work.','warn');
             break;
           }
           case 'Loop': {
@@ -2481,20 +2566,26 @@ function createNexusRuntime(root) {
         }
 
         ctx.save();
+        ctx.globalAlpha = Vec2.clamp(ui.opacity ?? 1,0,1);
+        const fontSize = Vec2.clamp(ui.fontSize ?? (ui.uiType === 'text' ? 16 : 14),8,160);
+        const padding = Vec2.clamp(ui.padding ?? 6,0,r.w/2);
         if (ui.uiType === 'button' || ui.uiType === 'panel') {
           ctx.fillStyle = ui.bgColor || '#2563eb';
           ctx.beginPath();
-          ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 8) : ctx.rect(r.x, r.y, r.w, r.h);
+          ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, Math.max(0,ui.radius ?? 8)) : ctx.rect(r.x, r.y, r.w, r.h);
           ctx.fill();
           ctx.fillStyle = ui.color || '#ffffff';
-          ctx.font = 'bold 14px sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(label, r.x + r.w * 0.5, r.y + r.h * 0.5, Math.max(1,r.w-12));
+          ctx.font = 'bold '+fontSize+'px sans-serif';
+          ctx.textAlign = ['left','right','center'].includes(ui.textAlign) ? ui.textAlign : 'center';
+          ctx.textBaseline = 'middle';
+          const x = ctx.textAlign === 'left' ? r.x+padding : ctx.textAlign === 'right' ? r.x+r.w-padding : r.x+r.w/2;
+          ctx.fillText(label, x, r.y+r.h/2, Math.max(1,r.w-2*padding));
         } else if (ui.uiType === 'text') {
           ctx.fillStyle = ui.color || '#ffffff';
-          ctx.font = 'bold 16px sans-serif';
-          ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-          ctx.fillText(label, r.x, r.y, Math.max(1,r.w));
+          ctx.font = 'bold '+fontSize+'px sans-serif';
+          ctx.textAlign = ['left','right','center'].includes(ui.textAlign) ? ui.textAlign : 'left'; ctx.textBaseline = 'top';
+          const x = ctx.textAlign === 'right' ? r.x+r.w : ctx.textAlign === 'center' ? r.x+r.w/2 : r.x;
+          label.split('\n').slice(0,32).forEach((line,i) => ctx.fillText(line,x,r.y+i*fontSize*1.2,Math.max(1,r.w)));
         } else if (ui.uiType === 'progress') {
           let cur = ui.value ?? 100, mx = ui.maxValue || 100;
           if (ui.bindVar && this.project.variables?.[ui.bindVar] !== undefined) cur = Number(this.project.variables[ui.bindVar]);
@@ -2565,9 +2656,10 @@ function createNexusRuntime(root) {
             if (pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
               hitUI = true;
               if (ui.uiType === 'button') {
+                if (ui.buttonAction === 'restart') { this.restartRequested = true; break; }
                 if (ui.eventName) this.actionTouches.set(ui.eventName,e.pointerId);
                 if (ui.eventName === 'jump') { this.virtualAxes.jump = true; this.jumpPointer = e.pointerId; }
-                for (const all of [...this.entities]) this.triggerEntityEvent(all, 'OnButtonPress', { eventName: ui.eventName || 'btn_click' });
+                for (const all of [...this.entities]) this.triggerEntityEvent(all, 'OnButtonPress', { eventName: ui.eventName || 'btn_click', other: ent });
               } else if (ui.uiType === 'joystick') {
                 this.joystickTouches.set(e.pointerId, { rect: r });
                 this._updateJoystick(r, pt.x, pt.y);
@@ -2820,7 +2912,7 @@ const ComponentSchemas = {
   ParticleEmitter: { enabled: true, emitting: true, rate: 16, lifetime: 0.7, speed: 65, spread: 0.9, direction: -1.57, gravity: -15, startSize: 6, endSize: 1, startColor: '#f97316', endColor: '#fde047', maxParticles: 60 },
   Tilemap: { enabled: true, tileSize: 32, cols: 12, rows: 20, assetId: 'builtin_tileset', tilesPerRow: 4, tiles: new Array(240).fill(0), collisionIds: [1, 2, 3] },
   ScriptBehavior: { enabled: true, graphId: '', source: '' },
-  UIElement: { enabled: true, uiType: 'button', anchor: 'top-left', x: 16, y: 16, width: 110, height: 40, widthPercent: 0, heightPercent: 0, text: 'Button', color: '#ffffff', bgColor: '#2563eb', value: 100, maxValue: 100, bindVar: '', eventName: 'btn_click', visible: true },
+  UIElement: { enabled: true, uiType: 'button', anchor: 'top-left', x: 16, y: 16, width: 110, height: 40, widthPercent: 0, heightPercent: 0, text: 'Button', color: '#ffffff', bgColor: '#2563eb', fontSize: 14, radius: 8, padding: 6, opacity: 1, textAlign: 'center', buttonAction: 'event', value: 100, maxValue: 100, bindVar: '', eventName: 'btn_click', visible: true },
   CharacterController: { enabled: true, mode: 'platformer', speed: 180, jumpForce: 340, doubleJump: true, coyoteTime: 0.12, jumpBuffer: 0.12, accel: 1200, decel: 900, steering: 3.2 },
   Health: { enabled: true, current: 100, max: 100, invulnTime: 0.4 },
   TriggerZone: { enabled: true, tag: 'goal', oneShot: false },
@@ -2848,6 +2940,11 @@ const NodeCatalog = [
     ['SeededRandom',{seed:1}],['GridDistance',{mapName:'',col:0,row:0,endCol:1,endRow:0}],
     ['CanSee',{targetName:'',distance:250}]
   ].map(([type,params]) => ({type,params,cat:'Game data',color:'#0369a1',in:Object.keys(params).filter(key => typeof params[key] === 'number'),out:['val']})),
+  ...[
+    ['ForRange',['start','end','step'],{start:0,end:5,step:1,scope:'object',key:'index'}],
+    ['ForEach',['items'],{items:'[1,2,3]',scope:'object',key:'item'}],
+    ['While',['cond'],{}],['RepeatUntil',['cond'],{}],['Forever',[],{}]
+  ].map(([type,inputs,params]) => ({type,cat:'Control',color:'#7c3aed',in:['in',...inputs],out:type==='Forever'?['body']:['body','done'],params})),
   // Events
   ...[
     ['OnSceneStart', {}], ['OnGameEnd', {eventName:''}], ['OnMessage',{eventName:'message'}],
@@ -3470,6 +3567,104 @@ const Templates = (() => {
     return project;
   }
 
+  function workshopTemplate(title,mode,color,amount) {
+    const p = baseProj(title,mode === 'runner' ? 820 : 0);
+    Object.assign(p.settings,{width:640,height:360,orientation:'landscape'});
+    p.variables.score = 0;
+    const scene = {id:'sc_1',name:title,bgColor:'#171f30',gridSize:24,variables:{},entities:[]};
+    p.scenes.push(scene);
+    const add = (id,name,x,y,components,tags = []) => {
+      const entity = ent(id,name,x,y,components,tags);
+      scene.entities.push(entity);
+      return entity;
+    };
+    const shape = (width,height,fill = color) => ({enabled:true,shape:'rect',width,height,color:fill});
+    const hit = (width,height,isTrigger = true) => ({...ComponentSchemas.Collider,width,height,isTrigger});
+    const ui = (id,type,text,x,y,extra = {}) => add(id,id,0,0,{UIElement:{...ComponentSchemas.UIElement,
+      uiType:type,text,x,y,width:155,height:38,bgColor:color,...extra}});
+    const script = (entity,id,stacks) => {
+      const nodes = [], edges = [];
+      for (const [event,...actions] of stacks) {
+        let previous;
+        for (const [type,params] of [event,...actions]) {
+          const node = {id:'n'+nodes.length,type,params,x:previous ? previous.x+245 : 20,y:previous?.y ?? nodes.length*130};
+          if (previous) edges.push({id:'e'+edges.length,fromNode:previous.id,fromPort:'out',toNode:node.id,toPort:'in'});
+          nodes.push(node); previous = node;
+        }
+      }
+      p.graphs[id] = {id,name:id,nodes,edges};
+      entity.components.ScriptBehavior = {enabled:true,graphId:id};
+    };
+    ui('restart','button','Restart',16,14,{anchor:'top-right',width:92,buttonAction:'restart'});
+    const score = ui('score','text','Score',14,15,{bindVar:'score',textAlign:'left'});
+    ui('status','text',mode === 'runner' ? 'Space or Jump to leap' : mode === 'target' ? 'Tap the targets' :
+      mode === 'quest' ? 'Reach the exit through the maze' : mode === 'survival' ? 'Dodge until the timer ends' : 'Collect all tokens',180,15,{width:300,textAlign:'left'});
+    if (mode === 'runner') {
+      const groundY = 302;
+      add('ground','Ground',320,groundY+15,{ShapeRenderer:shape(640,30,'#445471'),Collider:hit(640,30,false),RigidBody:{...ComponentSchemas.RigidBody,bodyType:'static'}});
+      add('runner','Runner',95,groundY-22,{SpriteRenderer:{...ComponentSchemas.SpriteRenderer,assetId:'spr_hero',width:36,height:36},
+        Collider:hit(27,32,false),RigidBody:{...ComponentSchemas.RigidBody},CharacterController:{...ComponentSchemas.CharacterController,speed:0,jumpForce:375,doubleJump:false}},['player']);
+      for (let i=0;i<amount;i++) {
+        const x = 690+i*245;
+        const obstacle = add('obstacle'+i,'Obstacle '+(i+1),x,groundY-16,{ShapeRenderer:shape(23,32),Collider:hit(23,32)});
+        obstacle.components.ScriptBehavior = {enabled:true,pythonSource:'def on_event(event, dt, game):\n    if event == "OnUpdate":\n        game["x"] -= (165 + '+amount+' * 12) * dt\n        if game["x"] < -25:\n            game["x"] += '+(amount*245+550)+'\n            game["set_var"]("score", game["get_var"]("score") + 1)\n    if event == "OnTriggerEnter" and game["other"] == "Runner":\n        game["end_game"]("lose")'};
+      }
+      ui('jump','button','Jump',18,14,{anchor:'bottom-right',width:115,height:48,eventName:'jump'});
+      return p;
+    }
+    if (mode !== 'target') {
+      const player = add('player','Player',72,182,{ShapeRenderer:shape(23,23,'#f6f8ff'),Collider:hit(21,21,false),
+        RigidBody:{...ComponentSchemas.RigidBody,gravityScale:0},CharacterController:{...ComponentSchemas.CharacterController,mode:'topdown',speed:170}},['player']);
+      ui('move','joystick','',12,12,{anchor:'bottom-left',width:75,height:75});
+      for (const [id,x,y,w,h] of [['left',2,180,4,360],['right',638,180,4,360],['top',320,48,640,4],['bottom',320,358,640,4]])
+        add(id,id,x,y,{ShapeRenderer:shape(w,h,'#465675'),Collider:hit(w,h,false),RigidBody:{...ComponentSchemas.RigidBody,bodyType:'static'}});
+      if (mode === 'quest') {
+        for (let i=0;i<amount;i++) add('wall'+i,'Wall '+i,145+i*80,i%2 ? 250 : 110,{ShapeRenderer:shape(18,160,'#465675'),
+          Collider:hit(18,160,false),RigidBody:{...ComponentSchemas.RigidBody,bodyType:'static'}});
+        const goal = add('goal','Exit',584,182,{ShapeRenderer:shape(34,36),Collider:hit(34,36)});
+        script(goal,'Reach the exit',[[['OnTriggerEnter',{filterTag:'player'}],['EndGame',{outcome:'win'}]]]);
+        return p;
+      }
+      if (mode === 'survival') {
+        score.components.UIElement.text = 'Survive';
+        player.components.Timer = {...ComponentSchemas.Timer,duration:amount*3,loop:false,eventName:'survived'};
+        script(player,'Survival timer',[[['OnTimer',{eventName:'survived'}],['EndGame',{outcome:'win'}]]]);
+        for (let i=0;i<amount;i++) {
+          const y = 76+i*41;
+          const trap = add('trap'+i,'Hunter '+i,450,y,{ShapeRenderer:shape(26,26),Collider:hit(24,24),
+            PathFollower:{...ComponentSchemas.PathFollower,mode:'patrol',speed:85+i*15,waypoints:'120,'+y+';585,'+y}});
+          script(trap,'Hunter contact '+i,[[['OnTriggerEnter',{filterTag:'player'}],['EndGame',{outcome:'lose'}]]]);
+        }
+        return p;
+      }
+    }
+    for (let i=0;i<amount;i++) {
+      const token = add('token'+i,'Token '+(i+1),150+i%4*112,105+Math.floor(i/4)*105,
+        {ShapeRenderer:{...shape(44,44),shape:'circle',radius:22},Collider:hit(44,44)});
+      const event = mode === 'target' ? ['OnTouch',{}] : ['OnTriggerEnter',{filterTag:'player'}];
+      script(token,'Collect '+(i+1),[[event,['IncVariable',{key:'score',amount:1}],['PlaySound',{preset:'coin'}],['DestroyObject',{target:'self'}]]]);
+    }
+    const check = add('check','Score rules',0,0,{});
+    script(check,'Win condition',[[['OnUpdate',{}],['If',{varKey:'score',op:'>=',value:amount}],['EndGame',{outcome:'win'}]]]);
+    p.graphs['Win condition'].edges[1].fromPort = 'true';
+    return p;
+  }
+
+  const workshop = [
+    ['Desert Dino','runner','#80b870',2],['Neon Hurdles','runner','#f4549d',3],
+    ['Moon Hopper','runner','#918ef4',4],['Volcano Dash','runner','#ed754d',5],
+    ['Garden Tokens','collect','#48bc90',4],['Crystal Collector','collect','#718df5',5],
+    ['Museum Hunt','collect','#efb06e',6],['Coral Treasure','collect','#e0788f',8],
+    ['Training Targets','target','#638deb',4],['Bubble Pop','target','#55c6da',5],
+    ['Lantern Lights','target','#f4ac4b',6],['Circuit Switches','target','#9a78ef',8],
+    ['Castle Escape','quest','#bb86df',3],['Labyrinth Lab','quest','#58a9f6',4],
+    ['Flooded Vault','quest','#43b5a5',5],['Space Station Exit','quest','#d084ec',6],
+    ['Drone Dodge','survival','#f07981',3],['Frost Arena','survival','#56b6e5',4],
+    ['Laser Hall','survival','#e5843b',5],['Haunted Hall','survival','#9c78f6',6]
+  ].map(([name,mode,color,amount]) => ({name,desc:{runner:'Jump over moving obstacles',collect:'Collect tokens around an arena',
+    target:'Tap every target',quest:'Find the exit through alternating barriers',survival:'Avoid moving hazards until time runs out'}[mode],
+    build:() => workshopTemplate(name,mode,color,amount)}));
+
   return [
     { name: '1. Platformer', desc: 'Tilemap, Jump, Coins, Patrol Enemy', build: platformer },
     { name: '2. Top-Down RPG', desc: 'NPC Dialogue, Gems, Scene Portal', build: topDown },
@@ -3477,7 +3672,8 @@ const Templates = (() => {
     { name: '4. Space Shooter', desc: 'Prefabs, Lasers, Alien Waves', build: spaceShooter },
     { name: '5. Puzzle Game', desc: 'Touch Grid, Logic, Win Check', build: puzzleGame },
     { name: '6. Racing Game', desc: 'Vehicle Physics, Track, Laps', build: racingGame },
-    { name: 'Checkpoint Campaign', desc: 'Main menu, three levels, Python and local saves', build: checkpointCampaign }
+    { name: 'Checkpoint Campaign', desc: 'Main menu, three levels, Python and local saves', build: checkpointCampaign },
+    ...workshop
   ];
 })();
 
@@ -3754,6 +3950,7 @@ const App = (() => {
     state.imgCache.clear();
     preloadEditorAssets();
     document.getElementById('hdr-title').textContent = proj.name;
+    document.getElementById('home-current').textContent = 'Current project · '+proj.name;
     refreshAll();
     log(`Loaded project "${proj.name}"`);
   }
@@ -3830,6 +4027,7 @@ const App = (() => {
   // --- Workspace Switching ---
   function switchWorkspace(ws) {
     commitEdit();
+    document.getElementById('app').classList.toggle('developing',ws !== 'home');
     document.querySelectorAll('.workspace').forEach(el => el.classList.toggle('active', el.id === 'ws-' + ws));
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.ws === ws));
     if (ws === 'scene') { resizeCanvas(sceneCanvas); drawSceneEditor(); }
@@ -4331,7 +4529,10 @@ const App = (() => {
       const grid = document.createElement('div');
       grid.className = 'grid-2';
 
-      const properties = cName === 'UIElement' ? {widthPercent:0,heightPercent:0,...comp} : comp;
+      const properties = cName === 'UIElement' ? {
+        widthPercent:0,heightPercent:0,fontSize:comp.uiType === 'text' ? 16 : 14,radius:8,padding:6,opacity:1,
+        textAlign:comp.uiType === 'text' ? 'left' : 'center',buttonAction:'event',...comp
+      } : comp;
       for (const [k, v] of Object.entries(properties)) {
         if (k === 'enabled' || k === 'tiles' || k === 'pythonSource') continue;
         if (cName === 'Tilemap' && k === 'collisionIds') {
@@ -4369,7 +4570,16 @@ const App = (() => {
           tools.append(check,search,docs);area.append(lines,inp);editor.append(tools,area,status);
           f.style.gridColumn='1 / -1';f.appendChild(editor);grid.appendChild(f);continue;
         }
-        if (k === 'assetId') {
+        if (cName === 'UIElement' && ['buttonAction','textAlign','eventName','text'].includes(k)) {
+          if (k === 'buttonAction' && comp.uiType !== 'button') continue;
+          const input = document.createElement(['buttonAction','textAlign'].includes(k) ? 'select' : k === 'text' ? 'textarea' : 'input');
+          input.className = 'input';
+          if (k === 'buttonAction') input.append(new Option('Run a logic event','event'),new Option('Restart the game','restart'));
+          if (k === 'textAlign') input.append(...['left','center','right'].map(value => new Option(value,value)));
+          input.value = v;
+          input.onchange = () => { pushUndo(); comp[k] = input.value; drawSceneEditor(); };
+          f.append(input);
+        } else if (k === 'assetId') {
           const sel = document.createElement('select');
           sel.innerHTML = `<option value="">(None)</option>` + Object.values(state.project.assets || {}).map(a => `<option value="${a.id}" ${v === a.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
           sel.onchange = () => { pushUndo(); comp[k] = sel.value; drawSceneEditor(); if(cName === 'Tilemap') refreshTilemapEditor(); };
@@ -4657,6 +4867,11 @@ const App = (() => {
     OnKeyPressed:'Runs once when the key is pressed.', OnKeyReleased:'Runs when the key is released.',
     Broadcast:'Queues a named message for Python scripts and blocks on objects in this scene.',
     EndGame:'Ends the current game with a win or loss. Opens the configured end scene or a built-in result screen.',
+    ForRange:'Counts from Start up to End, excluding End. Use a negative step to count down.',
+    ForEach:'Runs the body for each item in a list. Connect a value or enter a JSON list.',
+    While:'Runs the body while the condition is true. The body can change the condition.',
+    RepeatUntil:'Checks the condition before every iteration and stops once it is true.',
+    Forever:'Starts one loop per object and block. The body runs each frame until the scene changes or the object is removed.',
     RestartGame:'Restarts from the configured start scene and resets runtime global variables.',
     SaveGame:'Stores the scene and global variables in a local save slot.',
     LoadGame:'Loads global variables and opens the scene recorded in the slot.',
@@ -4741,7 +4956,7 @@ const App = (() => {
   function blockChoices(key,type,params = {}) {
     const simple = (...values) => values.map(value => [value,value]);
     const labels = list => list.map(item => [item.id,item.name]);
-    if (key === 'graphId') return [['','Choose script'],...labels(Object.values(state.project.graphs || {}))];
+    if (key === 'graphId') return [['','Choose reusable block'],...labels(Object.values(state.project.graphs || {}).filter(graph => graph.nodes.some(node => node.type === 'OnCall')))];
     if (key === 'component') return simple('Transform','RigidBody','SpriteRenderer','Collider','Health','UIElement','AnimationPlayer','ParticleEmitter','Camera');
     if (key === 'property' && ['ReadProperty','WriteProperty'].includes(type))
       return simple(...(NexusRuntime.scriptProperties[params.component || 'Transform'] || []));
@@ -4749,6 +4964,9 @@ const App = (() => {
     if (key === 'row') return [['','Choose record'],...simple(...Object.keys(state.project.dataTables?.[params.table] || {}))];
     if (key === 'field') return [['','Choose field'],...simple(...Object.keys(state.project.dataTables?.[params.table]?.[params.row] || {}))];
     if (key === 'channel') return simple('master','music','effects','voice');
+    if (key === 'eventName' && type === 'OnButtonPress') return [['','Any button'],
+      ...[...new Set((getActiveScene()?.entities || []).map(entity => entity.components.UIElement)
+        .filter(ui => ui?.uiType === 'button').map(ui => ui.eventName || 'btn_click'))].map(value => [value,value])];
     if (key === 'eventName' && ['ActionHeld','OnAction'].includes(type))
       return [['','Choose action'],...simple(...Object.keys(state.project.inputActions || {}))];
     if (key === 'scope') return [['global','Global · whole game'],['scene','Scene · current level'],['object','Object · this object']];
@@ -4800,6 +5018,8 @@ const App = (() => {
     IncVariable:'Add to variable',DecVariable:'Subtract from variable',SetVariable:'Set variable',
     Loop:'Repeat',Delay:'Wait',If:'If / else',SetText:'Set label text',Literal:'Constant value',
     GetVariable:'Read variable',GetPosition:'Read position',Broadcast:'Send message',ChangeScene:'Open scene',
+    RestartGame:'Restart game',Loop:'Repeat a number of times',ForRange:'For each number',ForEach:'For each item in list',
+    While:'While condition is true',RepeatUntil:'Repeat until condition is true',Forever:'Forever (every frame)',
     CallGraph:'Run custom block',OnCall:'When called as a custom block',FindObject:'Find object by name',
     ReadProperty:'Read object property',WriteProperty:'Set object property',ReadTile:'Read tile',WriteTile:'Paint tile',
     Literal:'Use a fixed value',EventValue:'Read event value',MathOp:'Calculate a number',Compare:'Compare values',
@@ -4849,7 +5069,7 @@ const App = (() => {
         const header = document.createElement('div');
         header.className = 'row';
         const title = document.createElement('strong');
-        title.textContent = blockName(node.type);
+        title.textContent = node.type === 'CallGraph' ? state.project.graphs[node.params?.graphId]?.name || blockName(node.type) : blockName(node.type);
         const current = node;
         header.append(title,helpButton('About '+blockName(node.type),() => openBlockHelp(current.type)),
           add('⋯',() => {
@@ -4898,6 +5118,7 @@ const App = (() => {
               pushUndo();
               current.params ||= {};
               current.params[key] = input.type === 'checkbox' ? input.checked : typeof value === 'number' ? Number(input.value) : input.value;
+              if (current.type === 'CallGraph' && key === 'graphId') renderBlockStacks();
               const dependent = {component:'property',table:'row',row:'field'};
               if (dependent[key]) {
                 current.params[dependent[key]] = blockChoices(dependent[key],current.type,current.params)?.[0]?.[0] ?? '';
@@ -4923,7 +5144,7 @@ const App = (() => {
         if (fields.childElementCount) card.append(fields);
         container.append(card);
         const outputs = def.out.filter(port => !['res','val'].includes(port));
-        if (outputs.length > 1 && depth < 8) {
+        if ((outputs.length > 1 || current.type === 'Forever') && depth < 8) {
           for (const port of outputs) {
             const branch = document.createElement('div'); branch.className = 'script-branch';
             const caption = document.createElement('strong'); caption.textContent = fieldName(port);
@@ -4959,6 +5180,67 @@ const App = (() => {
   function setBlockMode(mode) {
     wireMode = mode === 'wires';
     setPythonMode(mode === 'python');
+  }
+
+  function openCustomBlockMaker() {
+    const graph = getActiveGraph();
+    if (!graph) return toast('Create a script first.','warn');
+    const defs = new Map(NodeCatalog.map(def => [def.type,def]));
+    const body = document.createElement('div');
+    body.innerHTML = '<p>Choose connected action blocks. Their value inputs are copied into the reusable definition.</p><input class="input" aria-label="Custom block name" placeholder="Block name" maxlength="60"><p role="status" class="muted"></p>';
+    const name = body.querySelector('input'), status = body.querySelector('[role=status]');
+    const chosen = new Set();
+    for (const node of graph.nodes) {
+      const def = defs.get(node.type);
+      if (!def?.in.includes('in') || def.cat === 'Events' || def.out.includes('val') || def.out.includes('res')) continue;
+      const label = document.createElement('label');
+      label.className = 'row'; label.style.marginBlock = '8px';
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.onchange = () => check.checked ? chosen.add(node.id) : chosen.delete(node.id);
+      label.append(check,blockName(node.type));
+      body.append(label);
+    }
+    showModal('Make a reusable block',body,[{label:'Cancel'},{label:'Make block',cls:'btn-primary',onClick:() => {
+      const title = name.value.trim();
+      const fail = message => { status.textContent = message; };
+      if (!title || title.length > 60 || !chosen.size) return fail('Enter a name and choose at least one action block.');
+      const flow = graph.edges.filter(edge => !['val','res'].includes(edge.fromPort));
+      const internal = flow.filter(edge => chosen.has(edge.fromNode) && chosen.has(edge.toNode));
+      const entries = graph.nodes.filter(node => chosen.has(node.id) && !internal.some(edge => edge.toNode === node.id));
+      const incoming = flow.filter(edge => !chosen.has(edge.fromNode) && chosen.has(edge.toNode));
+      const outgoing = flow.filter(edge => chosen.has(edge.fromNode) && !chosen.has(edge.toNode));
+      if (entries.length !== 1 || incoming.some(edge => edge.toNode !== entries[0].id) ||
+          outgoing.some(edge => edge.fromPort !== 'out') || new Set(outgoing.map(edge => edge.fromNode)).size > 1)
+        return fail('Choose a connected sequence with one entry and one continuation. Include every branch you want to reuse.');
+      const reached = new Set([entries[0].id]);
+      for (const id of reached) for (const edge of internal) if (edge.fromNode === id) reached.add(edge.toNode);
+      if (reached.size !== chosen.size) return fail('Choose a connected sequence.');
+      if (outgoing.length && [...chosen].some(id => {
+        const def = defs.get(graph.nodes.find(node => node.id === id).type);
+        return def.type === 'Delay' || def.out.length !== 1 || def.out[0] !== 'out' || internal.filter(edge => edge.fromNode === id).length > 1;
+      })) return fail('Include the entire branch or loop when extracting it.');
+      const included = new Set(chosen);
+      for (const id of included) for (const edge of graph.edges) {
+        if (edge.toNode === id && ['val','res'].includes(edge.fromPort)) included.add(edge.fromNode);
+      }
+      const uid = 'custom_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const event = {id:uid+'_start',type:'OnCall',x:entries[0].x-245,y:entries[0].y,params:{}};
+      const call = {id:uid+'_call',type:'CallGraph',x:entries[0].x,y:entries[0].y,params:{graphId:uid,value:''}};
+      pushUndo();
+      state.project.graphs[uid] = {id:uid,name:title,nodes:[event,...graph.nodes.filter(node => included.has(node.id)).map(node => structuredClone(node))],
+        edges:[{id:uid+'_edge',fromNode:event.id,fromPort:'out',toNode:entries[0].id,toPort:'in'},
+          ...graph.edges.filter(edge => included.has(edge.fromNode) && included.has(edge.toNode)).map(edge => ({...edge}))]};
+      graph.nodes = graph.nodes.filter(node => !chosen.has(node.id));
+      graph.nodes.push(call);
+      graph.edges = graph.edges.flatMap(edge => {
+        if (incoming.includes(edge)) return [{...edge,toNode:call.id,toPort:'in'}];
+        if (outgoing.includes(edge)) return [{...edge,fromNode:call.id,fromPort:'out'}];
+        return !chosen.has(edge.fromNode) && !chosen.has(edge.toNode) ? [edge] : [];
+      });
+      closeModal(); refreshGraphSelector(); renderBlockStacks(); drawGraphEditor();
+      toast('Created '+title+'. Edit its script to update every call.','ok');
+    }}]);
   }
 
   function openValueLibrary(graph,target,input) {
@@ -6392,6 +6674,227 @@ def on_event(event, dt, game):
     };
   }
 
+  let aiProfiles = [];
+  const aiGameComponents = new Set(['Transform','SpriteRenderer','ShapeRenderer','TextRenderer','Camera','RigidBody','Collider',
+    'CharacterController','UIElement','Timer','PathFollower','ParticleEmitter','Health']);
+  const aiColor = (value,fallback) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  const aiNumber = (value,fallback,min,max) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max,Math.max(min,value)) : fallback;
+
+  function buildAiDraft(plan,mode,project,sceneId) {
+    const game = mode === 'game';
+    const draft = game ? {
+      id:'proj_'+crypto.randomUUID(),schemaVersion:1,name:String(plan.name || 'Generated game').slice(0,70),
+      settings:{...project.settings,width:Math.round(aiNumber(plan.width,640,160,1920)),height:Math.round(aiNumber(plan.height,360,160,1920)),
+        gravityY:aiNumber(plan.gravity,600,-3000,3000),startSceneId:'ai_scene',endSceneId:''},
+      variables:{},assets:{...BuiltinAssets.getDefaults()},graphs:{},animations:{},prefabs:{},
+      activeSceneId:'ai_scene',scenes:[{id:'ai_scene',name:'Main',bgColor:aiColor(plan.background,'#17233b'),gridSize:32,variables:{},entities:[]}]
+    } : structuredClone(project);
+    const scene = draft.scenes.find(candidate => candidate.id === (game ? draft.activeSceneId : sceneId));
+    if (!scene) throw Error('Select a scene first.');
+    if (game) {
+      draft.settings.orientation = draft.settings.width > draft.settings.height ? 'landscape' : 'portrait';
+      for (const [key,value] of Object.entries(plan.variables || {}).slice(0,50))
+        if (['number','boolean','string'].includes(typeof value)) draft.variables[key] = value;
+    }
+    const requireList = (value,limit) => Array.isArray(value) ? value.slice(0,limit) : [];
+    const assetIds = new Map(), id = () => 'ai_'+crypto.randomUUID();
+    const makeEntity = (name,x,y,components) => ({id:id(),name,parentId:null,visible:true,locked:false,tags:[],layer:0,variables:{},
+      components:{Transform:{...ComponentSchemas.Transform,x,y},...components}});
+    let changes = 0;
+    if (game || mode === 'sprite') for (const sprite of requireList(plan.sprites,16)) {
+      if (!sprite || !Array.isArray(sprite.rows) || !sprite.rows.length || sprite.rows.length > 48 ||
+          !sprite.rows.every(row => typeof row === 'string' && row.length > 0 && row.length <= 48)) throw Error('A sprite has invalid pixel rows.');
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(...sprite.rows.map(row => row.length)); canvas.height = sprite.rows.length;
+      const ctx = canvas.getContext('2d');
+      sprite.rows.forEach((row,y) => [...row].forEach((char,x) => {
+        if (char === '.') return;
+        ctx.fillStyle = aiColor(sprite.palette?.[char],'#ffffff'); ctx.fillRect(x,y,1,1);
+      }));
+      const name = String(sprite.name || 'Sprite').slice(0,60), assetId = id();
+      assetIds.set(name,assetId);
+      draft.assets[assetId] = {id:assetId,name,type:'image',width:canvas.width,height:canvas.height,dataUrl:canvas.toDataURL('image/png')};
+      changes++;
+    }
+    if (game || mode === 'sound') for (const sound of requireList(plan.sounds,16)) {
+      if (!sound) continue;
+      const name = String(sound.name || 'Sound effect').slice(0,60), assetId = id();
+      assetIds.set(name,assetId);
+      draft.assets[assetId] = {id:assetId,name,type:'audio',synth:{
+        wave:['sine','square','triangle','sawtooth'].includes(sound.wave) ? sound.wave : 'triangle',
+        f1:aiNumber(sound.freq,440,30,3000),f2:aiNumber(sound.endFreq,200,30,3000),
+        dur:aiNumber(sound.dur,0.2,0.05,2),vol:aiNumber(sound.vol,0.3,0.02,1)}};
+      changes++;
+    }
+    if ((game || mode === 'tilemap') && plan.tilemap) {
+      const {name,cols,rows,tileSize,tiles,collisionIds} = plan.tilemap;
+      if (![cols,rows].every(n => Number.isInteger(n) && n>0 && n<=128) || !Array.isArray(tiles) || tiles.length !== cols*rows ||
+          !tiles.every(n => Number.isInteger(n) && n>=0 && n<=7)) throw Error('The generated tilemap dimensions or tiles are invalid.');
+      scene.entities.unshift(makeEntity(String(name || 'Generated tilemap').slice(0,60),0,0,{Tilemap:{...ComponentSchemas.Tilemap,
+        cols,rows,tileSize:Math.round(aiNumber(tileSize,32,4,256)),tiles,
+        collisionIds:requireList(collisionIds,8).filter(n => Number.isInteger(n) && n>0 && n<=7)}}));
+      changes++;
+    }
+    if (game || mode === 'logic') {
+      const defs = new Map(NodeCatalog.map(def => [def.type,def]));
+      for (const object of requireList(plan.objects,80)) {
+        if (!object || typeof object.name !== 'string') throw Error('Each game object must have a name.');
+        const name = object.name.slice(0,60);
+        const entity = game ? makeEntity(name,aiNumber(object.x,0,-10000,10000),aiNumber(object.y,0,-10000,10000),{}) :
+          scene.entities.find(item => item.name === object.name);
+        if (!entity) throw Error('Object not found in the current scene: '+name);
+        if (game) {
+          entity.tags = requireList(object.tags,12).filter(tag => typeof tag === 'string');
+          for (const [type,settings] of Object.entries(object.components || {})) {
+            if (!aiGameComponents.has(type) || !settings || typeof settings !== 'object') continue;
+            const comp = {...ComponentSchemas[type]};
+            for (const [key,value] of Object.entries(settings)) {
+              if (!Object.hasOwn(comp,key) || typeof value !== typeof comp[key]) continue;
+              comp[key] = typeof value === 'number' ? aiNumber(value,comp[key],-10000,10000) : typeof value === 'string' ? value.slice(0,500) : value;
+            }
+            if (type === 'SpriteRenderer') comp.assetId = assetIds.get(comp.assetId) || comp.assetId;
+            if (type === 'UIElement') {
+              comp.width = Math.max(1,comp.width); comp.height = Math.max(1,comp.height);
+            }
+            entity.components[type] = comp;
+          }
+          scene.entities.push(entity); changes++;
+        }
+        const stacks = requireList(object.stacks,16);
+        if (!stacks.length) continue;
+        const behavior = entity.components.ScriptBehavior;
+        const prior = draft.graphs[behavior?.graphId];
+        const graph = {id:id(),name:name+' logic',nodes:structuredClone(prior?.nodes || []),edges:structuredClone(prior?.edges || [])};
+        for (const stack of stacks) {
+          if (!defs.has(stack?.event?.type) || defs.get(stack.event.type).cat !== 'Events' || stack.event.type === 'OnCall')
+            throw Error('Unknown event for '+name+'.');
+          const y = graph.nodes.reduce((max,node) => Math.max(max,node.y),-150)+150;
+          let previous;
+          for (const [index,block] of [stack.event,...requireList(stack.actions,24)].entries()) {
+            const def = defs.get(block?.type);
+            if (!def || index && (!def.in.includes('in') || def.out.some(port => port !== 'out')))
+              throw Error('Unsupported action for '+name+': '+String(block?.type));
+            if (previous && !defs.get(previous.type).out.includes('out')) throw Error('Place a terminal action at the end of the stack.');
+            const params = {...def.params};
+            for (const [key,value] of Object.entries(block.params || {}))
+              if (Object.hasOwn(params,key) && ['string','boolean','number'].includes(typeof value))
+                params[key] = typeof value === 'string' ? value.slice(0,600) : value;
+            if (block.type === 'PlaySound') params.preset = assetIds.get(params.preset) || params.preset;
+            const node = {id:id(),type:block.type,x:20+index*245,y,params};
+            if (previous) graph.edges.push({id:id(),fromNode:previous.id,fromPort:'out',toNode:node.id,toPort:'in'});
+            graph.nodes.push(node); previous = node;
+          }
+        }
+        draft.graphs[graph.id] = graph;
+        entity.components.ScriptBehavior = {...behavior,enabled:true,graphId:graph.id};
+        changes++;
+      }
+    }
+    if (!changes || game && !requireList(plan.objects,80).length) throw Error('The AI did not return content for this mode.');
+    StorageManager.validateProjectJSON(draft);
+    return {draft,changes};
+  }
+
+  function openAiStudio() {
+    if (!state.project) return;
+    const body = document.createElement('div');
+    if (window.NexusNative) {
+      const link = document.createElement('a');
+      link.href = 'https://2dgame-engine-carlos.vercel.app/'; link.textContent = 'Open Nexus on the web';
+      body.append('AI providers are available in the web editor. You can move projects between versions with an editable ZIP. ',link);
+      showModal('Build with AI',body,[{label:'Close'}]); return;
+    }
+    body.innerHTML = `<div class="field"><label for="ai-mode">Generate</label><select id="ai-mode">
+      <option value="game">New game</option><option value="tilemap">Tilemap for current scene</option>
+      <option value="sprite">Pixel art assets</option><option value="sound">Sound effects</option><option value="logic">Logic for an existing object</option>
+      </select></div><div class="field"><label for="ai-prompt">Describe what to build</label>
+      <textarea id="ai-prompt" class="input" rows="4" maxlength="4000"></textarea></div>
+      <details open><summary>AI providers</summary><p class="muted">Use OpenAI-compatible chat endpoints with browser CORS enabled. Keys stay in this tab and are sent to their own endpoint.</p>
+      <div id="ai-profiles"></div><button class="btn btn-sm" id="ai-add-provider">Add provider</button></details><p role="status" id="ai-status"></p>`;
+    const profiles = body.querySelector('#ai-profiles'), status = body.querySelector('#ai-status');
+    const addProvider = (initial = {}) => {
+      if (profiles.children.length >= 8) return;
+      const row = document.createElement('div'); row.className = 'card';
+      row.innerHTML = '<div class="field"><label>API base URL</label><input class="input" data-url placeholder="https://api.example.com/v1" type="url"></div>'+
+        '<div class="field"><label>Model ID</label><input class="input" data-model placeholder="Provider model ID"></div>'+
+        '<div class="field"><label>API keys, one per line</label><textarea class="input" data-keys rows="2" autocomplete="off" spellcheck="false" style="-webkit-text-security:disc"></textarea></div>'+
+        '<button class="btn btn-sm">Remove provider</button>';
+      row.querySelector('[data-url]').value = initial.url || '';
+      row.querySelector('[data-model]').value = initial.model || '';
+      row.querySelector('[data-keys]').value = (initial.keys || []).join('\n');
+      row.querySelector('button').onclick = () => row.remove();
+      profiles.append(row);
+    };
+    (aiProfiles.length ? aiProfiles : [{}]).forEach(addProvider);
+    body.querySelector('#ai-add-provider').onclick = () => addProvider();
+    let controller, generated, source, sceneId, requestMode;
+    let apply, generate;
+    const cancel = () => controller?.abort(new DOMException('Generation canceled.','AbortError'));
+    showModal('Build with AI',body,[{label:'Cancel request',onClick:cancel},{label:'Generate',cls:'btn-primary',onClick:async () => {
+      generate.disabled = true; apply.disabled = true; generated = null;
+      const mode = body.querySelector('#ai-mode').value, prompt = body.querySelector('#ai-prompt').value.trim();
+      try {
+        if (!prompt) throw Error('Describe your game or asset first.');
+        aiProfiles = [...profiles.children].map(row => ({
+          url:row.querySelector('[data-url]').value.trim(),model:row.querySelector('[data-model]').value.trim(),
+          keys:row.querySelector('[data-keys]').value.split(/\r?\n/).map(key => key.trim()).filter(Boolean).slice(0,12)
+        })).filter(profile => profile.url && profile.model && profile.keys.length);
+        for (const profile of aiProfiles) NexusAi.endpoint(profile.url);
+        source = state.project; sceneId = state.activeSceneId; requestMode = mode;
+        controller = new AbortController();
+        const timer = setTimeout(() => controller?.abort(new DOMException('The provider request timed out.','TimeoutError')),120000);
+        try {
+          status.textContent = 'Requesting a plan from your provider…';
+          const catalog = NodeCatalog.filter(def => def.cat === 'Events' || def.in.includes('in') && def.out.every(port => port === 'out'))
+            .map(def => ({type:def.type,params:def.params}));
+          const objects = mode === 'logic' ? getActiveScene()?.entities.map(entity => entity.name) || [] : [];
+          const request = text => NexusAi.generate(aiProfiles,mode,text,catalog,objects,controller.signal);
+          let plan = await request(prompt);
+          try { generated = buildAiDraft(plan,mode,source,sceneId); }
+          catch (error) {
+            status.textContent = 'Correcting the generated plan…';
+            plan = await request(prompt+'\nThe first plan failed validation: '+error.message.slice(0,250)+'. Return a corrected complete JSON plan.');
+            generated = buildAiDraft(plan,mode,source,sceneId);
+          }
+          status.textContent = (mode === 'game' ? generated.draft.name+' · ' : '')+generated.changes+' generated additions. Review and apply when ready.';
+          const summary = document.createElement('ul');
+          const names = mode === 'game' ? generated.draft.scenes[0].entities.map(item => item.name) :
+            mode === 'logic' ? (plan.objects || []).map(item => item.name) : mode === 'tilemap' ? [plan.tilemap?.name || 'Tilemap'] :
+              (mode === 'sprite' ? plan.sprites || [] : plan.sounds || []).map(item => item?.name || 'Untitled');
+          for (const name of names.slice(0,20)) {
+            const entry = document.createElement('li'); entry.textContent = name; summary.append(entry);
+          }
+          status.append(summary);
+          apply.disabled = false;
+        } finally { clearTimeout(timer); controller = null; }
+      } catch (error) { status.textContent = error.message; }
+      finally { generate.disabled = false; }
+    }},{label:'Apply',onClick:async () => {
+      if (!generated || state.project !== source || state.activeSceneId !== sceneId) return;
+      apply.disabled = true;
+      if (requestMode === 'game') {
+        if (!await saveCurrentProject(true)) { apply.disabled = false; return; }
+        loadProjectIntoEditor(generated.draft); switchWorkspace('scene');
+      } else {
+        pushUndo();
+        Object.assign(state.project,generated.draft);
+        state.imgCache.clear(); preloadEditorAssets(); refreshAll();
+        switchWorkspace(requestMode === 'logic' ? 'logic' : 'create');
+        if (requestMode !== 'logic') document.querySelector('[data-sub="'+(requestMode === 'tilemap' ? 'tilemap' : 'assets')+'"]')?.click();
+      }
+      closeModal(); await saveCurrentProject(true);
+      toast('AI changes applied.','ok');
+    }}]);
+    [,generate,apply] = document.getElementById('modal-ftr').children;
+    apply.disabled = true;
+    const observer = new MutationObserver(() => {
+      if (!body.isConnected || !document.getElementById('modal-backdrop').classList.contains('open')) {
+        cancel(); observer.disconnect();
+      }
+    });
+    observer.observe(document.getElementById('modal-backdrop'),{attributes:true,childList:true,subtree:true,attributeFilter:['class']});
+  }
+
   async function buildGameHTML(project) {
     const hasPython = project.scenes.some(scene => scene.entities.some(entity => entity.components?.ScriptBehavior?.pythonSource?.trim())) ||
       Object.values(project.prefabs || {}).some(prefab => JSON.stringify(prefab).includes('"pythonSource"'));
@@ -6743,6 +7246,37 @@ def on_event(event, dt, game):
     };
 
     // Home actions
+    document.getElementById('studio-menu').onclick = () => {
+      const list = document.createElement('div'); list.id = 'studio-menu-links';
+      const actions = [['Home',() => switchWorkspace('home')],['Scene',() => switchWorkspace('scene')],
+        ['Inspector',() => switchWorkspace('inspect')],['Logic',() => switchWorkspace('logic')],
+        ['Create',() => switchWorkspace('create')],['Debug',() => switchWorkspace('debug')],
+        ['Export',() => openExportDialog()],['Saved exports',openExportLibrary],['Build with AI',openAiStudio],
+        ['Docs',() => document.getElementById('btn-open-docs').click()]];
+      for (const [label,run] of actions) {
+        const button = document.createElement('button'); button.className = 'btn'; button.textContent = label;
+        button.onclick = () => { closeModal(); run(); }; list.append(button);
+      }
+      showModal('Studio menu',list,[{label:'Close'}]);
+    };
+    document.getElementById('open-development').onclick = () => switchWorkspace('scene');
+    document.getElementById('open-ai').onclick = openAiStudio;
+    document.getElementById('template-filter').oninput = event => {
+      const query = event.target.value.trim().toLowerCase();
+      for (const card of document.getElementById('templates-list').children)
+        card.hidden = !card.textContent.toLowerCase().includes(query);
+    };
+    document.getElementById('set-view-preset').onchange = event => {
+      const preset = event.target.value;
+      const size = {landscape:[640,360],portrait:[360,640],square:[512,512]}[preset];
+      if (!size) return;
+      pushUndo();
+      Object.assign(state.project.settings,{width:size[0],height:size[1],orientation:preset === 'square' ? 'auto' : preset});
+      document.getElementById('set-vp-w').value = size[0];
+      document.getElementById('set-vp-h').value = size[1];
+      event.target.value = '';
+      drawSceneEditor();
+    };
     document.getElementById('btn-new-proj').onclick = async () => {
       const n = await promptInput('New Project', 'Project Name:', 'My Mobile Game');
       if (n) createBlankProject(n);
@@ -6764,7 +7298,7 @@ def on_event(event, dt, game):
     `, [{ label: 'Got it', cls: 'btn-primary' }]);
 
     // Settings bindings
-    document.getElementById('set-proj-name').onchange = (e) => { pushUndo(); state.project.name = e.target.value; document.getElementById('hdr-title').textContent = e.target.value; };
+    document.getElementById('set-proj-name').onchange = (e) => { pushUndo(); state.project.name = e.target.value; document.getElementById('hdr-title').textContent = e.target.value; document.getElementById('home-current').textContent = 'Current project · '+e.target.value; };
     document.getElementById('set-active-scene').onchange = (e) => { state.activeSceneId = e.target.value; refreshAll(); };
     for (const [id, key] of [['set-start-scene','startSceneId'], ['set-end-scene','endSceneId']]) {
       document.getElementById(id).onchange = event => { pushUndo(); state.project.settings[key] = event.target.value; };
@@ -6891,6 +7425,7 @@ def on_event(event, dt, game):
     };
 
     // Logic Editor Buttons
+    document.getElementById('btn-custom-block').onclick = openCustomBlockMaker;
     document.getElementById('graph-selector').onchange = (e) => { state.selectedGraphId = e.target.value; state.selectedNodeId = null; renderNodeInspector(); drawGraphEditor(); renderBlockStacks(); };
     document.getElementById('btn-assign-graph').onclick = () => {
       const graph = getActiveGraph();
@@ -7213,6 +7748,7 @@ def on_event(event, dt, game):
       const sc = getActiveScene(); if (!sc) return;
       const t = b.dataset.uipreset;
       const cfg = {
+        restart:{uiType:'button',anchor:'top-right',x:12,y:12,width:100,height:40,text:'Restart',buttonAction:'restart'},
         button: { uiType: 'button', anchor: 'bottom-right', x: 18, y: 24, width: 96, height: 50, text: 'ACT', bgColor: '#3b82f6', eventName: 'btn_click' },
         text: { uiType: 'text', anchor: 'top-left', x: 16, y: 16, width: 140, height: 30, text: 'SCORE', color: '#facc15', bindVar: 'score' },
         progress: { uiType: 'progress', anchor: 'top-right', x: 16, y: 16, width: 110, height: 18, bgColor: '#10b981', value: 100, maxValue: 100 },

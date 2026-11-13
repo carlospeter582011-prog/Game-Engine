@@ -68,3 +68,14 @@ Run `bash tools/build-web.sh` locally or download `Nexus-Engine-Website.zip` fro
 - In **Create → Tilemap**, zoom with two fingers or the mouse wheel and use **Map** to jump to a region. **Generate terrain** fills the selected layer with a repeatable landscape from a seed.
 
 After modifying the Android player, regenerate its checked-in browser template with `bash tools/build-player.sh` followed by `python3 tools/export-player-template.py`. The Android workflow verifies both exporters using the Android build tools.
+
+## Workshop
+
+Open [Nexus Studio](https://2dgame-engine-carlos.vercel.app/) and use the studio menu to switch between Home, the editor, exports and AI. Rotate the device for a landscape editor, or choose a viewport preset in project settings to change the game itself. The 20 Workshop templates cover five gameplay families. Desert Dino includes automatic obstacle scrolling, jumping, score and restart.
+
+- In **Logic → Make block**, select a connected set of actions and name it. Nexus extracts a shared definition and replaces the selection with a call. Edit that definition to change every call in the project.
+- **For each number**, **For each item in list**, **While**, and **Repeat until** have body and completion branches. Numeric ranges exclude their end value. The runtime bounds each synchronous loop. **Forever** schedules its body on each frame.
+- **Create → UI Builder** has a Restart button preset. For custom actions, name a UI button event and select it in **When a button is tapped**. In Inspect, edit text, alignment, font size, corner radius, opacity and padding.
+- **Build with AI** in the web editor accepts HTTPS OpenAI-compatible chat endpoints that allow browser CORS. Each provider has a model ID and one or more keys. Nexus tries the keys in order before moving to the next provider. Keys stay in the tab and are sent only to the provider configured with them. Generate a game, tilemap, pixel art, sound effect or object logic. Review and apply the result in Nexus. **Assets & Prefabs → Import files** imports your own audio and images.
+
+Browser storage is per domain. Export an editable project ZIP from the old address and import it at the new one. Use encrypted signing key backups to move APK signing keys.

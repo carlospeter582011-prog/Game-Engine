@@ -98,3 +98,71 @@ const scripting = vm.runInContext(`
 assert.deepEqual(JSON.parse(scripting),{pythonResult:[67,10],stored:true,saved:true,loaded:true,tile:4,
   invalidTile:false,pressed:true,released:true,turn:1,stable:true});
 console.log('Shared Python commands, tile persistence, input actions, turns, and seeded randomness passed.');
+
+const workshop = vm.runInContext(`
+  (() => {
+    const templates = Templates.slice(-20);
+    const errors = [];
+    for (const template of templates) {
+      const runtime = new NexusRuntime.GameRuntime(template.build(),null,{onLog:(message,level) => {
+        if (level === 'err') errors.push(template.name+': '+message);
+      }});
+      runtime.init();
+      for (let i=0;i<120;i++) runtime.step(1/60);
+    }
+    const project = templates[0].build();
+    const runtime = new NexusRuntime.GameRuntime(project,null);
+    runtime.init();
+    const entity = runtime.entityMap.get('runner');
+    const make = (nodes,edges,id='test') => ({id,nodes:nodes.map(([type,params],i) => ({id:'n'+i,type,params})),
+      edges:edges.map(([fromNode,fromPort,toNode,toPort]) => ({fromNode:'n'+fromNode,fromPort,toNode:'n'+toNode,toPort:toPort || 'in'}))});
+    const run = (nodes,edges,id) => {
+      const graph = make(nodes,edges,id);
+      runtime._execFromNode(graph,graph.nodes[0],entity,{});
+    };
+    const inc = ['IncVariable',{key:'score',amount:1}];
+    run([['ForRange',{start:0,end:4,step:1,key:'i'}],inc],[[0,'body',1]]);
+    run([['ForEach',{items:'[1,2,3]',key:'item'}],inc],[[0,'body',1]]);
+    run([['RepeatUntil',{}],inc,['Compare',{varKey:'score',op:'>=',b:10}]],[[0,'body',1],[2,'val',0,'cond']]);
+    run([['While',{}],inc,['Compare',{varKey:'score',op:'<',b:12}]],[[0,'body',1],[2,'val',0,'cond']]);
+    const loopScore = runtime.project.variables.score;
+    run([['Forever',{}],inc],[[0,'body',1]],'ticker');
+    runtime.step(0); runtime.step(0);
+    const foreverScore = runtime.project.variables.score;
+    run([['RestartGame',{}]],[]);
+    runtime.step(0);
+    const reset = [runtime.project.variables.score,runtime.foreverBlocks.size];
+    const reusable = make([['OnCall',{}],inc],[[0,'out',1]],'custom');
+    runtime.project.graphs.custom = reusable;
+    const actor = runtime.entityMap.get('runner');
+    const call = make([['CallGraph',{graphId:'custom'}]],[]);
+    runtime._execFromNode(call,call.nodes[0],actor,{});
+    reusable.nodes[1].params.amount = 3;
+    runtime._execFromNode(call,call.nodes[0],actor,{});
+    return JSON.stringify({count:templates.length,errors,loopScore,foreverScore,reset,reused:runtime.project.variables.score});
+  })()
+`,c);
+assert.deepEqual(JSON.parse(workshop),{count:20,errors:[],loopScore:12,foreverScore:14,reset:[0,0],reused:4});
+console.log('Twenty workshop templates, four loop types, restart and shared custom block definitions passed.');
+
+(async () => {
+  const calls = [];
+  const ai = vm.createContext({URL,fetch:async (url,request) => {
+    calls.push([url,request.headers.Authorization,JSON.parse(request.body).model]);
+    if (calls.length < 3) return {ok:false,status:429};
+    return {ok:true,json:async () => ({choices:[{message:{content:'{"sounds":[{"name":"Coin"}]}'}}]})};
+  }});
+  vm.runInContext(fs.readFileSync(base+'ai.js','utf8'),ai);
+  assert.throws(() => ai.NexusAi.endpoint('http://example.com'));
+  const plan = await ai.NexusAi.generate([
+    {url:'https://one.example/v1/',model:'one',keys:['first','second']},
+    {url:'https://two.example/chat/completions',model:'two',keys:['third']}
+  ],'sound','Coin pickup',[],[],new AbortController().signal);
+  assert.equal(plan.sounds[0].name,'Coin');
+  assert.deepEqual(calls,[
+    ['https://one.example/v1/chat/completions','Bearer first','one'],
+    ['https://one.example/v1/chat/completions','Bearer second','one'],
+    ['https://two.example/chat/completions','Bearer third','two']
+  ]);
+  console.log('AI key rotation and provider fallback passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
