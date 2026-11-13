@@ -4687,6 +4687,7 @@ def on_event(event, dt, game):
 
   async function buildGameHTML() {
     const project = JSON.parse(JSON.stringify(state.project));
+    project.activeSceneId = state.activeSceneId;
     const hasPython = project.scenes.some(scene => scene.entities.some(entity => entity.components?.ScriptBehavior?.pythonSource?.trim())) ||
       Object.values(project.prefabs || {}).some(prefab => JSON.stringify(prefab).includes('"pythonSource"'));
     if (!hasPython) return GameExporter.buildStandaloneHTML(project);

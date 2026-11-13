@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+// Keep the Flutter SDK Material library while it remains bundled.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 

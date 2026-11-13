@@ -217,7 +217,7 @@ class MainActivity : FlutterActivity() {
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
                     WebViewCompat.addWebMessageListener(this, "NexusNative", setOf(origin)) {
                         _: WebView, message, sourceOrigin, mainFrame, _: JavaScriptReplyProxy ->
-                        if (mainFrame && sourceOrigin.toString() == origin && url == editorUrl) {
+                        if (mainFrame && sourceOrigin.toString().trimEnd('/') == origin && this.url == editorUrl) {
                             message.data?.let { channel?.invokeMethod("message", it) }
                         }
                     }
