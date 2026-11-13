@@ -1,0 +1,14 @@
+.dart_tool/
+.flutter-plugins-dependencies
+build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/
+assets/web/vendor/skulpt*.js
+*.jks
+*.keystore
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+android/app/src/main/res/drawable-nodpi/game_icon.png
+__pycache__/

@@ -1,0 +1,15 @@
+name: nexus_engine
+description: Nexus game editor and standalone Android game player.
+publish_to: none
+version: 2.0.0+1
+environment:
+  sdk: ^3.12.0
+dependencies:
+  flutter:
+    sdk: flutter
+  archive: ^4.0.7
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/web/
+    - assets/web/vendor/

@@ -1,0 +1,115 @@
+name: Export standalone game APK
+run-name: Game APK · ${{ inputs.package_id || 'smoke test' }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'tools/**'
+      - 'pubspec.*'
+      - '.github/workflows/export-game.yml'
+  workflow_dispatch:
+    inputs:
+      game_blob:
+        description: Git blob SHA of the exported standalone HTML
+        type: string
+        required: true
+      icon_blob:
+        description: Optional Git blob SHA for the 512px PNG launcher icon
+        type: string
+        required: false
+      package_id:
+        description: Android package ID
+        type: string
+        required: true
+      app_name:
+        description: Android launcher name
+        type: string
+        required: true
+      orientation:
+        description: auto, portrait, or landscape
+        type: string
+        default: auto
+      version_name:
+        description: Version name such as 1.0.0
+        type: string
+        default: '1.0.0'
+      build_number:
+        description: Android version code
+        type: string
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage game and Android metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GAME_BLOB: ${{ inputs.game_blob }}
+          ICON_BLOB: ${{ inputs.icon_blob }}
+          INPUT_PACKAGE: ${{ inputs.package_id || 'com.nexusengine.smokegame' }}
+          INPUT_NAME: ${{ inputs.app_name || 'Nexus Smoke Game' }}
+          INPUT_ORIENTATION: ${{ inputs.orientation || 'auto' }}
+          INPUT_VERSION: ${{ inputs.version_name || '1.0.0' }}
+          INPUT_NUMBER: ${{ inputs.build_number || '1' }}
+        run: |
+          set -euo pipefail
+          fetch_blob() {
+            [[ "$1" =~ ^[0-9a-f]{40}$ ]]
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/git/blobs/$1" > "$2"
+          }
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            fetch_blob "$GAME_BLOB" "$RUNNER_TEMP/nexus-game.html"
+            if [[ -n "$ICON_BLOB" ]]; then
+              fetch_blob "$ICON_BLOB" "$RUNNER_TEMP/nexus-icon.png"
+            fi
+          else
+            cp tools/smoke-game.html "$RUNNER_TEMP/nexus-game.html"
+          fi
+          python3 tools/package-game.py "$RUNNER_TEMP/nexus-game.html" --icon "$RUNNER_TEMP/nexus-icon.png"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          cache: true
+      - name: Configure signing
+        run: bash tools/prepare-signing.sh
+        env:
+          KEYSTORE_BASE64: ${{ secrets.NEXUS_KEYSTORE_BASE64 }}
+          NEXUS_STORE_PASSWORD: ${{ secrets.NEXUS_STORE_PASSWORD }}
+          NEXUS_KEY_ALIAS: ${{ secrets.NEXUS_KEY_ALIAS }}
+          NEXUS_KEY_PASSWORD: ${{ secrets.NEXUS_KEY_PASSWORD }}
+      - name: Build game and verify package and version
+        run: |
+          set -euo pipefail
+          flutter build apk --release --dart-define=NEXUS_GAME=true --build-name="$NEXUS_VERSION" --build-number="$NEXUS_NUMBER"
+          mkdir -p output
+          apk="output/$NEXUS_PACKAGE.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$apk"
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          info=$("$aapt" dump badging "$apk")
+          grep -F "package: name='$NEXUS_PACKAGE' versionCode='$NEXUS_NUMBER' versionName='$NEXUS_VERSION'" <<<"$info"
+          unzip -l "$apk" > "$RUNNER_TEMP/apk-files"
+          grep -F 'assets/game.html' "$RUNNER_TEMP/apk-files"
+          if grep -F 'assets/web/editor.html' "$RUNNER_TEMP/apk-files"; then exit 1; fi
+        env:
+          NEXUS_STORE_PASSWORD: ${{ secrets.NEXUS_STORE_PASSWORD }}
+          NEXUS_KEY_ALIAS: ${{ secrets.NEXUS_KEY_ALIAS }}
+          NEXUS_KEY_PASSWORD: ${{ secrets.NEXUS_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NEXUS_PACKAGE }}
+          path: output/*.apk
+          if-no-files-found: error
+          retention-days: 7
