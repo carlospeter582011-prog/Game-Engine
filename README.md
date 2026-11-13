@@ -49,9 +49,11 @@ On phones, Create uses a workspace picker. Drawing tools stay above the canvas, 
 
 ## Flutter web editor
 
-Open the [Nexus website](https://carlospeter582011-prog.github.io/Game-Engine/) after the website workflow deploys, or download `Nexus-Engine-Website.zip` from the latest release and serve the extracted files over HTTP. The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
+Import the GitHub repository into Vercel and deploy from the repository root. The checked-in `vercel.json` sets the framework to Other, runs `bash tools/build-web.sh`, and publishes `build/web`. The script installs the pinned Flutter SDK when Flutter is absent. Set `main` as the production branch.
 
-To build the website locally, run `bash tools/fetch-python.sh`, `flutter pub get` and `flutter build web --release`. Serve `build/web` from an HTTP server. The GitHub workflow saves the website build as an Actions artifact and deploys it with GitHub Pages. For first-time setup, a repository admin selects **Settings → Pages → Source → GitHub Actions** and reruns the website workflow.
+The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
+
+Run `bash tools/build-web.sh` locally or download `Nexus-Engine-Website.zip` from the latest release. Serve the contents of `build/web` or the extracted ZIP from the root of an HTTP server. GitHub Actions also uploads the website as a build artifact.
 
 ## Visual scripts and game systems
 

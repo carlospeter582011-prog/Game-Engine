@@ -1,4 +1,4 @@
-name: Build and deploy Nexus website
+name: Build Nexus website
 
 on:
   push:
@@ -7,12 +7,10 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: nexus-pages
-  cancel-in-progress: false
+  group: nexus-web
+  cancel-in-progress: true
 
 jobs:
   web:
@@ -24,25 +22,9 @@ jobs:
         with:
           flutter-version: '3.50.0'
           cache: true
-      - run: bash tools/fetch-python.sh
-      - run: flutter pub get
-      - run: flutter build web --release --base-href "/${GITHUB_REPOSITORY#*/}/" --no-web-resources-cdn
-      - run: test -s build/web/assets/assets/web/editor.html
+      - run: bash tools/build-web.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Nexus-Engine-Website
           path: build/web
           if-no-files-found: error
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-  deploy:
-    needs: web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - id: deploy
-        uses: actions/deploy-pages@v4
