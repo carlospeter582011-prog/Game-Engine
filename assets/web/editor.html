@@ -3607,7 +3607,20 @@ const Templates = (() => {
       for (let i=0;i<amount;i++) {
         const x = 690+i*245;
         const obstacle = add('obstacle'+i,'Obstacle '+(i+1),x,groundY-16,{ShapeRenderer:shape(23,32),Collider:hit(23,32)});
-        obstacle.components.ScriptBehavior = {enabled:true,pythonSource:'def on_event(event, dt, game):\n    if event == "OnUpdate":\n        game["x"] -= (165 + '+amount+' * 12) * dt\n        if game["x"] < -25:\n            game["x"] += '+(amount*245+550)+'\n            game["set_var"]("score", game["get_var"]("score") + 1)\n    if event == "OnTriggerEnter" and game["other"] == "Runner":\n        game["end_game"]("lose")'};
+        const graphId = 'Runner obstacle';
+        if (!p.graphs[graphId]) {
+          script(obstacle,graphId,[
+            [['OnUpdate',{}],['MoveObject',{dx:-(165+amount*12),dy:0,perSecond:true}],['If',{}],
+              ['MoveObject',{dx:amount*245+550,dy:0}],['IncVariable',{key:'score',amount:1}]],
+            [['OnTriggerEnter',{filterTag:'player'}],['EndGame',{outcome:'lose'}]]
+          ]);
+          const graph = p.graphs[graphId];
+          graph.edges[2].fromPort = 'true';
+          graph.nodes.push({id:'position',type:'GetPosition',x:0,y:400,params:{axis:'x'}},
+            {id:'compare',type:'Compare',x:245,y:400,params:{op:'<',b:-25}});
+          graph.edges.push({id:'pos_value',fromNode:'position',fromPort:'val',toNode:'compare',toPort:'a'},
+            {id:'wrap_condition',fromNode:'compare',fromPort:'val',toNode:'n2',toPort:'cond'});
+        } else obstacle.components.ScriptBehavior = {enabled:true,graphId};
       }
       ui('jump','button','Jump',18,14,{anchor:'bottom-right',width:115,height:48,eventName:'jump'});
       return p;
