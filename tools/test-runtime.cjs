@@ -65,3 +65,36 @@ const landing = vm.runInContext(`
   })()
 `, c);
 assert.equal(landing, true, 'Player should stay on the floor across a tile seam');
+
+const scripting = vm.runInContext(`
+  (() => {
+    const project = Templates[0].build();
+    project.dataTables = {items:{potion:{price:10}}};
+    project.inputActions = {Jump:{key:'Space'}};
+    const runtime = new NexusRuntime.GameRuntime(project,null);
+    runtime.init();
+    const player = runtime.entityMap.get('e_plr');
+    const map = runtime.entities.find(entity => entity.components.Tilemap);
+    const commands = runtime.gameCommands(player,{});
+    const behavior = player.components.ScriptBehavior ||= {enabled:true};
+    behavior.pythonSource = 'def on_event(event, dt, game):\\n    if event == "OnMessage":\\n        game["write_property"]("self", "Transform", "x", 67)\\n        game["set_var"]("price", game["data_value"]("items", "potion", "price"))';
+    runtime.triggerEntityEvent(player,'OnMessage');
+    const pythonResult = [player.components.Transform.x,runtime.project.variables.price];
+    const stored = commands.write_tile(map.id,0,0,4);
+    const saved = commands.save_world('test');
+    commands.write_tile(map.id,0,0,6);
+    const loaded = commands.load_world('test');
+    runtime.step(0);
+    runtime.keys.add('Space');
+    runtime.refreshActions();
+    const pressed = commands.action_held('Jump');
+    runtime.keys.delete('Space');
+    runtime.refreshActions();
+    return JSON.stringify({pythonResult,stored,saved,loaded,tile:commands.read_tile(map.id,0,0),
+      invalidTile:commands.write_tile(map.id,-1,0,5),pressed,released:!commands.action_held('Jump'),
+      turn:commands.advance_turn(2),stable:commands.seeded_random(45)===commands.seeded_random(45)});
+  })()
+`,c);
+assert.deepEqual(JSON.parse(scripting),{pythonResult:[67,10],stored:true,saved:true,loaded:true,tile:4,
+  invalidTile:false,pressed:true,released:true,turn:1,stable:true});
+console.log('Shared Python commands, tile persistence, input actions, turns, and seeded randomness passed.');

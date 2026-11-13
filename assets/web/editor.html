@@ -4814,7 +4814,7 @@ const App = (() => {
               current.params[key] = input.type === 'checkbox' ? input.checked : typeof value === 'number' ? Number(input.value) : input.value;
               const dependent = {component:'property',table:'row',row:'field'};
               if (dependent[key]) {
-                current.params[dependent[key]] = blockChoices(dependent[key],node.type,current.params)?.[0]?.[0] ?? '';
+                current.params[dependent[key]] = blockChoices(dependent[key],current.type,current.params)?.[0]?.[0] ?? '';
                 if (key === 'table') current.params.field = '';
                 renderBlockStacks();
               }
