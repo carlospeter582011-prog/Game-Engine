@@ -42,3 +42,5 @@ Load **Checkpoint Campaign** for an editable main menu, three platformer scenes 
 The Logic editor includes descriptions of every block’s inputs, outputs and settings. Press the small round help button on a selected block. Play preview includes device sizes, frame stepping, collision visualization and pause-at-end-of-frame block breakpoints.
 
 **Create → Tilemap** supports layers, resize, zoom, history and import of finite orthogonal Tiled JSON with one square tileset. Choose the sprite-sheet asset and solid tile IDs in Inspect. The offline map assistant recognizes dimensions and layout keywords. In **Assets & Prefabs** you can import multiple images and sounds, then add them to the scene or play them through logic.
+
+Use **Inspect → SpriteRenderer → Slice sprite sheet** to see the frame grid. Add **SpriteStates** to assign Idle, Run and Jump frame ranges. Use **Create → UI Builder → Place** to drag touch controls and HUD widgets into place.

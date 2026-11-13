@@ -880,6 +880,7 @@ function createNexusRuntime(root) {
       Object.assign(this.virtualAxes,{x:0,y:0,jump:false,action:false});
       this.jumpPointer = null;
       this.delayedTasks = [];
+      this.accumulator = 0;
       this.timers.clear();
       this.pendingDestroy.clear();
       this.pendingAdd = [];
@@ -1354,6 +1355,7 @@ function createNexusRuntime(root) {
       // Entity updates: Invuln, Animations, Particles, Scripts
       for (const e of [...this.entities]) {
         if (e._invuln > 0) e._invuln = Math.max(0, e._invuln - dt);
+        this._updateSpriteState(e, dt);
         this._updateAnimation(e, dt);
         this._updateParticles(e, dt);
         this.triggerEntityEvent(e, 'OnUpdate', { dt });
@@ -1371,6 +1373,29 @@ function createNexusRuntime(root) {
 
       // Camera update
       this._updateCamera(dt);
+    }
+
+    _updateSpriteState(entity, dt) {
+      const config = entity.components.SpriteStates;
+      const sprite = entity.components.SpriteRenderer;
+      if (!config?.enabled || !sprite?.enabled) return;
+      const body = entity.components.RigidBody;
+      const position = entity.components.Transform;
+      const lastX = entity._previousSpriteX ?? position?.x ?? 0;
+      const lastY = entity._previousSpriteY ?? position?.y ?? 0;
+      const moving = Math.abs(body?.vx || 0) + Math.abs(body?.vy || 0) > 5 ||
+        Math.abs((position?.x || 0)-lastX) + Math.abs((position?.y || 0)-lastY) > 0.05;
+      entity._previousSpriteX = position?.x;
+      entity._previousSpriteY = position?.y;
+      const scope = this.variableStore(entity,'object');
+      const state = ['idle','run','jump'].includes(scope.spriteState) ? scope.spriteState :
+        config.jumpCount > 0 && entity.components.CharacterController?.mode === 'platformer' && !entity._grounded ? 'jump' :
+        moving && config.runCount > 0 ? 'run' : 'idle';
+      if (state !== entity._spriteState) { entity._spriteState = state; entity._spriteTime = 0; }
+      const count = Math.max(1,Math.floor(config[state+'Count'] || 1));
+      const start = Math.max(0,Math.floor(config[state+'Start'] || 0));
+      sprite.frameIndex = start + Math.floor(entity._spriteTime * Math.max(1,config.fps || 8)) % count;
+      entity._spriteTime += dt;
     }
 
     _updateAnimation(e, dt) {
@@ -1536,7 +1561,9 @@ function createNexusRuntime(root) {
           if (body && Number.isFinite(values.vy)) body.vy = values.vy;
         } catch (err) {
           sb._pythonFailed = true;
-          this.onLog('Python ' + entity.name + ': ' + String(err), 'err');
+          const location = err.traceback?.at(-1);
+          const line = location?.lineno ? ' · line '+location.lineno : '';
+          this.onLog('Python ' + entity.name + line + ': ' + String(err), 'err');
         }
       }
       if (sb?.enabled && sb.source?.trim()) {
@@ -2417,6 +2444,7 @@ const BuiltinAssets = (() => {
 // ============================================================================
 const ComponentSchemas = {
   Transform: { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 },
+  SpriteStates: { enabled: true, fps: 8, idleStart: 0, idleCount: 1, runStart: 1, runCount: 0, jumpStart: 0, jumpCount: 0 },
   SpriteRenderer: { enabled: true, assetId: 'spr_hero', width: 32, height: 32, flipX: false, flipY: false, opacity: 1, tint: '#ffffff', frameIndex: 0, cols: 1, rows: 1, sortingOrder: 1 },
   ShapeRenderer: { enabled: true, shape: 'rect', width: 40, height: 40, radius: 20, color: '#38bdf8', strokeColor: '#ffffff', strokeWidth: 0, opacity: 1, sortingOrder: 0 },
   TextRenderer: { enabled: true, text: 'Text', fontSize: 16, color: '#ffffff', align: 'center', sortingOrder: 3 },
@@ -3793,7 +3821,8 @@ const App = (() => {
       const grid = document.createElement('div');
       grid.className = 'grid-2';
 
-      for (const [k, v] of Object.entries(comp)) {
+      const properties = cName === 'UIElement' ? {widthPercent:0,heightPercent:0,...comp} : comp;
+      for (const [k, v] of Object.entries(properties)) {
         if (k === 'enabled' || k === 'tiles' || k === 'pythonSource') continue;
         if (cName === 'Tilemap' && k === 'collisionIds') {
           const field = document.createElement('label'); field.textContent = 'Solid tile IDs';
@@ -3882,12 +3911,54 @@ const App = (() => {
         grid.appendChild(f);
       }
       card.appendChild(grid);
+      if (cName === 'SpriteRenderer') {
+        const frames = document.createElement('button');
+        frames.className = 'btn btn-sm'; frames.textContent = 'Slice sprite sheet';
+        frames.onclick = () => openSpriteSheet(ent);
+        card.append(frames);
+      }
       if (cName === 'Tilemap') {
         const resize = document.createElement('button'); resize.className = 'btn btn-sm'; resize.textContent = 'Resize map';
         resize.onclick = () => openTilemapSettings(false, ent); card.append(resize);
       }
       body.appendChild(card);
     }
+  }
+
+  function openSpriteSheet(entity) {
+    const sprite = entity.components.SpriteRenderer;
+    const asset = state.project.assets?.[sprite.assetId];
+    if (!asset?.dataUrl || asset.type === 'audio') return toast('Assign a sprite sheet image first.','warn');
+    const body = document.createElement('div');
+    const fields = document.createElement('div');
+    fields.className = 'grid-2';
+    const make = (label,value) => {
+      const field = document.createElement('label'); field.textContent = label;
+      const input = document.createElement('input'); input.type = 'number'; input.className = 'input';
+      input.min = '1'; input.max = '64'; input.value = value || 1;
+      field.append(input); fields.append(field); return input;
+    };
+    const columns = make('Columns',sprite.cols), rows = make('Rows',sprite.rows);
+    const preview = document.createElement('div');
+    preview.style.cssText = 'position:relative;width:fit-content;max-width:100%;margin:12px auto;';
+    const image = document.createElement('img'); image.src = asset.dataUrl;
+    image.style.cssText = 'display:block;max-width:100%;max-height:32dvh;image-rendering:pixelated;';
+    const grid = document.createElement('div');
+    grid.style.cssText = 'position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(90deg,#9ce3ff 1px,transparent 1px),linear-gradient(#9ce3ff 1px,transparent 1px);';
+    const update = () => {
+      grid.style.backgroundSize = (100/(columns.valueAsNumber || 1))+'% '+(100/(rows.valueAsNumber || 1))+'%';
+    };
+    columns.oninput = rows.oninput = update; update();
+    preview.append(image,grid);
+    const help = document.createElement('p'); help.className = 'muted';
+    help.textContent = 'Frame numbers start at 0, left to right. Add SpriteStates to set Idle, Run and Jump frame ranges.';
+    body.append(fields,preview,help);
+    showModal('Slice sprite sheet',body,[{label:'Cancel'},{label:'Apply grid',cls:'btn-primary',onClick:() => {
+      const cols = columns.valueAsNumber, count = rows.valueAsNumber;
+      if (![cols,count].every(value => Number.isInteger(value) && value >= 1 && value <= 64)) return toast('Enter 1–64 rows and columns.','warn');
+      pushUndo(); Object.assign(sprite,{cols,rows:count});
+      closeModal(); renderInspector(); drawSceneEditor();
+    }}]);
   }
 
   function openAddComponentModal(ent) {
@@ -3939,13 +4010,21 @@ const App = (() => {
     if(n.type==='If')return 'if '+String(p.varKey||'value')+' '+String(p.op||'>=')+' '+JSON.stringify(p.value)+':';
     if(n.type==='Loop')return 'for i in range('+Number(p.count||0)+'):';
     if(n.type==='Delay')return '# wait '+Number(p.seconds||0)+' seconds';
-    return '# '+n.type+' (visual action; not executable script)\n# '+Object.entries(p).map(([k,v])=>k+' = '+JSON.stringify(v)).join(', ');
+    if(n.type==='Broadcast')return 'game["broadcast"]('+JSON.stringify(p.eventName)+', value)';
+    if(n.type==='ChangeScene')return 'game["change_scene"]('+JSON.stringify(p.sceneName)+')';
+    if(n.type==='EndGame')return 'game["end_game"]('+JSON.stringify(p.outcome)+')';
+    if(n.type==='SaveGame'||n.type==='LoadGame')return 'game["'+(n.type==='SaveGame'?'save':'load')+'"]('+JSON.stringify(p.slot)+')';
+    if(n.type==='SetVariable')return 'game["set_var"]('+JSON.stringify(p.key)+', value, '+JSON.stringify(p.scope)+')';
+    if(n.type==='GetVariable')return 'value = game["get_var"]('+JSON.stringify(p.key)+', '+JSON.stringify(p.scope)+')';
+    if(n.type==='CreateObject')return 'game["spawn"]('+JSON.stringify(p.prefabId)+', '+Number(p.offsetX||0)+', '+Number(p.offsetY||0)+')';
+    if(n.type==='PlaySound')return 'game["play_sound"]('+JSON.stringify(p.preset)+')';
+    return '# '+n.type+'\n# '+Object.entries(p).map(([k,v])=>k+' = '+JSON.stringify(v)).join(', ');
   }
 
   function getNodeRect(node) {
     const def = NodeCatalog.find(d => d.type === node.type) || { in: [], out: [] };
     const ports = Math.max(def.in.length, def.out.length, 1);
-    return { x: node.x, y: node.y, w: 220, h: 66 + ports * 22 };
+    return { x: node.x, y: node.y, w: 220, h: 78 + ports * 22 };
   }
 
   function getPortPos(node, portName, isOut) {
@@ -4832,6 +4911,49 @@ const App = (() => {
   }
 
   // --- UI Builder & Assets Panel ---
+  function openWidgetLayout(entity) {
+    const ui = entity.components.UIElement;
+    const settings = state.project.settings;
+    const frame = document.createElement('div');
+    frame.style.cssText = 'position:relative;width:100%;max-height:52dvh;overflow:hidden;background:#101e2f;border:1px solid #375273;border-radius:10px;touch-action:none;';
+    const width = settings.width || 360, height = settings.height || 640;
+    frame.style.aspectRatio = width+'/'+height;
+    const widget = document.createElement('div'); widget.textContent = ui.text || entity.name;
+    widget.style.cssText = 'position:absolute;display:grid;place-items:center;background:#246494;color:white;border:1px solid #8ecbff;border-radius:8px;touch-action:none;user-select:none;';
+    const getRect = () => NexusRuntime.GameRuntime.prototype._getUIRect(ui,width,height);
+    const original = getRect();
+    const place = {x:original.x,y:original.y};
+    const draw = () => {
+      Object.assign(widget.style,{left:place.x/width*100+'%',top:place.y/height*100+'%',
+        width:original.w/width*100+'%',height:original.h/height*100+'%'});
+    };
+    let drag = null;
+    widget.onpointerdown = event => {
+      widget.setPointerCapture(event.pointerId);
+      drag = {x:event.clientX,y:event.clientY,left:place.x,top:place.y};
+    };
+    widget.onpointermove = event => {
+      if (!drag) return;
+      const rect = frame.getBoundingClientRect();
+      place.x = Math.round(Math.max(0,Math.min(width-original.w,drag.left+(event.clientX-drag.x)*width/rect.width)));
+      place.y = Math.round(Math.max(0,Math.min(height-original.h,drag.top+(event.clientY-drag.y)*height/rect.height)));
+      draw();
+    };
+    widget.onpointerup = widget.onpointercancel = () => { drag = null; };
+    draw(); frame.append(widget);
+    showModal('Place '+entity.name,frame,[{label:'Cancel'},{label:'Apply position',cls:'btn-primary',onClick:() => {
+      if (place.x !== original.x || place.y !== original.y) {
+        pushUndo();
+        if (ui.anchor === 'center') { ui.x = place.x-(width-original.w)/2; ui.y = place.y-(height-original.h)/2; }
+        else {
+          ui.x = ui.anchor?.endsWith('right') ? width-original.w-place.x : place.x;
+          ui.y = ui.anchor?.startsWith('bottom') ? height-original.h-place.y : place.y;
+        }
+      }
+      closeModal(); refreshUIBuilder();
+    }}]);
+  }
+
   function refreshUIBuilder() {
     const sc = getActiveScene();
     const list = document.getElementById('ui-elements-list');
@@ -4842,11 +4964,14 @@ const App = (() => {
       const ui = e.components.UIElement;
       const row = document.createElement('div');
       row.className = 'entity-item';
-      row.innerHTML = `<div><strong>${esc(e.name)}</strong><div class="muted">${ui.uiType} • ${ui.anchor} (${ui.x},${ui.y})</div></div>`;
+      row.innerHTML = `<div><strong>${esc(e.name)}</strong><div class="muted">${esc(ui.uiType)} • ${esc(ui.anchor)} (${esc(ui.x)},${esc(ui.y)})</div></div>`;
+      const actions = document.createElement('div'); actions.className = 'row';
+      const move = document.createElement('button'); move.className = 'btn btn-sm'; move.textContent = 'Place';
+      move.onclick = () => openWidgetLayout(e);
       const btn = document.createElement('button');
       btn.className = 'btn btn-sm btn-primary'; btn.textContent = 'Edit';
       btn.onclick = () => { state.selectedEntityId = e.id; switchWorkspace('inspect'); };
-      row.appendChild(btn);
+      actions.append(move,btn); row.append(actions);
       list.appendChild(row);
     }
   }
@@ -4877,7 +5002,8 @@ const App = (() => {
         const ne = {
           id: 'ent_' + Date.now(), name: a.name, parentId: null, visible: true, locked: false, tags: [], layer: 1, variables: {},
           components: {
-            Transform: { x: 180, y: 300, rotation: 0, scaleX: 1, scaleY: 1 },
+            Transform: { x: (state.project.settings.width || 360)/2 + state.sceneCam.x,
+              y:(state.project.settings.height || 640)/2 + state.sceneCam.y, rotation: 0, scaleX: 1, scaleY: 1 },
             SpriteRenderer: { enabled: true, assetId: a.id, width: a.width || 32, height: a.height || 32, sortingOrder: 1 }
           }
         };
@@ -5619,7 +5745,16 @@ def on_event(event, dt, game):
     };
     document.getElementById('btn-graph-zoom-in').onclick = () => { state.graphCam.zoom = Math.min(2.5, state.graphCam.zoom * 1.2); drawGraphEditor(); };
     document.getElementById('btn-graph-zoom-out').onclick = () => { state.graphCam.zoom = Math.max(0.4, state.graphCam.zoom / 1.2); drawGraphEditor(); };
-    document.getElementById('btn-graph-fit').onclick = () => { state.graphCam = { x: 0, y: 0, zoom: 1 }; drawGraphEditor(); };
+    document.getElementById('btn-graph-fit').onclick = () => {
+      const rects = (getActiveGraph()?.nodes || []).map(getNodeRect);
+      if (!rects.length) return;
+      const bounds = graphCanvas.getBoundingClientRect();
+      const left = Math.min(...rects.map(rect => rect.x)), top = Math.min(...rects.map(rect => rect.y));
+      const right = Math.max(...rects.map(rect => rect.x+rect.w)), bottom = Math.max(...rects.map(rect => rect.y+rect.h));
+      state.graphCam = {x:(left+right)/2-240,y:(top+bottom)/2-160,
+        zoom:Math.max(0.12,Math.min(1,(bounds.width-36)/(right-left),(bounds.height-36)/(bottom-top)))};
+      drawGraphEditor();
+    };
 
     // Create Subtabs
     document.querySelectorAll('#create-subtabs .subtab').forEach(b => b.onclick = () => {
