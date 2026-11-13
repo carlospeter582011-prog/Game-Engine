@@ -4,9 +4,13 @@ The Flutter app hosts the Nexus 2D editor offline. The app includes the scene ed
 
 ## Export a game APK
 
-1. Open a project and choose **Home → Export Android APK**.
-2. Set the app name, unique Android package ID, launcher icon, orientation, version name, and build number.
-3. Tap **Build APK** and then **Save APK**. The editor packages the game HTML and assets into a lightweight Android player, signs it on the device, and opens the Android save dialog.
+1. Choose **Home → Export** and select the open project or a saved project.
+2. Choose **Android APK**, **Standalone HTML game**, or **Editable project ZIP**.
+3. Select **Inside Nexus** to keep a copy in **Saved exports**, or **Device files** to download or save a file.
+
+On the website, fill in the app name, package ID, launcher icon, orientation, version and build number. Nexus builds and signs the APK in the browser without uploading the game. The signing key is saved locally by package ID. Use the encrypted signing key backup to move it to another browser. The browser's signing keys and the Android app's signing keys are separate.
+
+On Android, **Device files** opens the native APK exporter and file picker.
 
 The export works offline. The finished APK opens directly in an Android WebView with system bars visible on Android 7+. Games run without the editor installed. The editor keeps the signing key in Android Keystore. To update an installed game, export from the same Nexus installation, reuse its package ID, and increase the build number. To keep game updates portable across devices, choose your own password-protected PKCS#12 signing key before the first export and keep a backup of that file. Android Keystore keys stay on their device. An editor release intended for store distribution can be signed using the repository’s existing signing secrets.
 
@@ -51,7 +55,7 @@ On phones, Create uses a workspace picker. Drawing tools stay above the canvas, 
 
 Import the GitHub repository into Vercel and deploy from the repository root. The checked-in `vercel.json` sets the framework to Other, runs `bash tools/build-web.sh`, and publishes `build/web`. The script installs the pinned Flutter SDK when Flutter is absent. Set `main` as the production branch.
 
-The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
+The browser editor supports preview, Python, editable project ZIPs, standalone HTML games and signed Android APKs. Use a project ZIP to move editable projects between devices.
 
 Run `bash tools/build-web.sh` locally or download `Nexus-Engine-Website.zip` from the latest release. Serve the contents of `build/web` or the extracted ZIP from the root of an HTTP server. GitHub Actions also uploads the website as a build artifact.
 
@@ -62,3 +66,5 @@ Run `bash tools/build-web.sh` locally or download `Nexus-Engine-Website.zip` fro
 - Use **Data & input** to edit project records and bind actions to keyboard keys, touch controls and gamepad buttons. The **When an action starts** event fires once per press.
 - Blocks and Python share commands for finding objects, reading and writing component properties and tiles, raycasts, camera zoom, object state, data records, turns, grid navigation, line of sight and seeded random values. **Save world** stores active scene objects and global variables in a local versioned slot.
 - In **Create → Tilemap**, zoom with two fingers or the mouse wheel and use **Map** to jump to a region. **Generate terrain** fills the selected layer with a repeatable landscape from a seed.
+
+After modifying the Android player, regenerate its checked-in browser template with `bash tools/build-player.sh` followed by `python3 tools/export-player-template.py`. The Android workflow verifies both exporters using the Android build tools.

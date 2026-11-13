@@ -14,6 +14,7 @@ export CI=true
 bash tools/fetch-python.sh
 flutter pub get
 node tools/test-runtime.cjs
+node tools/test-web-apk.cjs
 flutter build web --release --no-web-resources-cdn
 test -s build/web/index.html
 test -s build/web/assets/assets/web/editor.html

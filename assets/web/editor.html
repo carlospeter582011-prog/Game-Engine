@@ -288,13 +288,12 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
       <div class="scroll-y">
         <div class="card">
           <div class="card-title"><span>NEXUS STUDIO</span><span class="chip" id="storage-chip">Storage: --</span></div>
-          <p class="muted" style="margin:0 0 10px;">Mobile-first 2D Game Engine. Build scenes, physics, pixel art, tilemaps, visual scripts, and export standalone offline HTML games.</p>
+          <p class="muted" style="margin:0 0 10px;">Mobile-first 2D Game Engine. Build scenes, physics, pixel art, tilemaps, visual scripts, and export offline HTML games and Android APKs.</p>
           <div class="grid-2">
             <button class="btn btn-primary" id="btn-new-proj">+ New Blank Project</button>
             <button class="btn" id="btn-import-proj">Import ZIP</button>
-            <button class="btn" id="btn-export-proj-json">Export Project ZIP</button>
-            <button class="btn btn-ok" id="btn-export-game">Export HTML Game</button>
-            <button class="btn btn-primary nexus-android" id="btn-export-apk" hidden>Export Android APK</button>
+            <button class="btn btn-ok" id="btn-export-game">Export</button>
+            <button class="btn" id="btn-export-library">Saved exports</button>
           </div>
           <div class="row" style="margin-top:8px;">
             <button class="btn btn-sm" id="btn-start-tut" style="flex:1;">🎓 Interactive Tutorial</button>
@@ -682,6 +681,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 <script src="vendor/skulpt.min.js"></script>
 <script src="vendor/skulpt-stdlib.js"></script>
 <script src="python.js"></script>
+<script src="apk.js"></script>
 <script>
 // ============================================================================
 // 1. SHARED STANDALONE GAME RUNTIME (USED BY PREVIEW + HTML EXPORTER)
@@ -2929,10 +2929,12 @@ const StorageManager = (() => {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       if (!window.indexedDB) return reject(new Error('IndexedDB unavailable'));
-      const req = indexedDB.open(DB_NAME, 1);
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
+        for (const store of ['exports','signingKeys'])
+          if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error || new Error('IndexedDB failed'));
@@ -3009,7 +3011,18 @@ const StorageManager = (() => {
     return 'IndexedDB Ready';
   }
 
-  return { saveProject, loadProject, listProjects, deleteProject, validateProjectJSON, getStorageEstimate };
+  async function exportStorage(store,method,...args) {
+    const db = await openDB();
+    const read = method === 'get' || method === 'getAll';
+    return new Promise((resolve,reject) => {
+      const tx = db.transaction(store,read ? 'readonly' : 'readwrite');
+      const request = tx.objectStore(store)[method](...args);
+      tx.oncomplete = () => resolve(request.result);
+      tx.onabort = () => reject(tx.error || new Error('Storage transaction failed.'));
+    });
+  }
+
+  return { saveProject, loadProject, listProjects, deleteProject, validateProjectJSON, getStorageEstimate, exportStorage };
 })();
 
 const GameExporter = {
@@ -6173,7 +6186,7 @@ const App = (() => {
       ['New Blank Project', () => createBlankProject()],
       ['Save Project', () => saveCurrentProject()],
       ['Play Preview', () => startPreview()],
-      ['Export Standalone HTML', () => exportGameHTML()],
+      ['Export Standalone HTML', () => openExportDialog('html')],
       ['Run Automated Tests', () => { switchWorkspace('debug'); document.querySelector('[data-dbg="tests"]').click(); runAutomatedTests(); }],
       ['Open Pixel Art Editor', () => { switchWorkspace('create'); document.querySelector('[data-sub="pixel"]').click(); }],
       ['Open Visual Scripting', () => switchWorkspace('logic')]
@@ -6212,9 +6225,10 @@ const App = (() => {
     async function unpack(file){const bytes=new Uint8Array(await file.arrayBuffer()),v=new DataView(bytes.buffer);if(bytes.length>150*1024*1024)throw Error('ZIP exceeds 150MB import limit');let end=-1;for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){if(v.getUint32(i,true)===0x06054b50){end=i;break;}}if(end<0)throw Error('Invalid ZIP archive');const count=v.getUint16(end+10,true),start=v.getUint32(end+16,true);if(count>10000)throw Error('Too many entries');let at=start;const files={};for(let i=0;i<count;i++){if(at+46>bytes.length||v.getUint32(at,true)!==0x02014b50)throw Error('Invalid ZIP directory');const method=v.getUint16(at+10,true),crc=v.getUint32(at+16,true),size=v.getUint32(at+20,true),n=v.getUint16(at+28,true),extra=v.getUint16(at+30,true),comment=v.getUint16(at+32,true),off=v.getUint32(at+42,true);const name=decoder.decode(bytes.subarray(at+46,at+46+n));if(name.includes('..')||name.startsWith('/')||name.includes('\\'))throw Error('Unsafe ZIP path');if(method!==0)throw Error('Compressed ZIP not supported: use NEXUS ZIP export');if(size>100*1024*1024)throw Error('ZIP entry too large');if(off+30>bytes.length||v.getUint32(off,true)!==0x04034b50)throw Error('Invalid ZIP entry');const dataAt=off+30+v.getUint16(off+26,true)+v.getUint16(off+28,true),data=bytes.slice(dataAt,dataAt+size);if(data.length!==size||crc32(data)!==crc)throw Error('Corrupted ZIP entry: '+name);files[name]=data;at+=46+n+extra+comment;}return files;}
     return {pack,unpack,encoder,decoder};
   })();
-  function exportProjectZIP(){const project=state.project;const files={'project.json':JSON.stringify(project,null,2),'metadata.json':JSON.stringify({format:'nexus-zip',version:2,created:new Date().toISOString()})};
+  function buildProjectZIP(project){const files={'project.json':JSON.stringify(project,null,2),'metadata.json':JSON.stringify({format:'nexus-zip',version:2,created:new Date().toISOString()})};
     for(const [id,asset] of Object.entries(project.assets||{})){if(!asset?.dataUrl)continue;const match=/^data:([^;,]+);base64,(.*)$/.exec(asset.dataUrl);if(match){const raw=atob(match[2]);files['assets/'+encodeURIComponent(id)+'.bin']=Uint8Array.from(raw,c=>c.charCodeAt(0));}}
-    const blob=NexusZIP.pack(files);downloadFile((project.name||'project').replace(/[^a-z0-9_-]/gi,'_')+'.nexus.zip',blob,'application/zip');toast('Editable ZIP exported','ok');}
+    return NexusZIP.pack(files);
+  }
   async function importProjectZIP(file){const files=await NexusZIP.unpack(file);if(!files['project.json'])throw Error('Missing project.json');const parsed=JSON.parse(NexusZIP.decoder.decode(files['project.json']));const valid=StorageManager.validateProjectJSON(parsed);for(const [id,asset] of Object.entries(valid.assets||{})){const match=/^data:([^;,]+);base64,(.*)$/.exec(asset?.dataUrl||'');if(match){const path='assets/'+encodeURIComponent(id)+'.bin';if(!files[path])throw Error('Missing asset in ZIP: '+id);const original=Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0)),stored=files[path];if(original.length!==stored.length||original.some((v,i)=>v!==stored[i]))throw Error('Asset mismatch: '+id);}}valid.id='proj_imp_'+Date.now();await StorageManager.saveProject(valid);loadProjectIntoEditor(valid);refreshProjectsList();toast('ZIP project restored','ok');}
   const pythonExample = `import math
 
@@ -6378,9 +6392,7 @@ def on_event(event, dt, game):
     };
   }
 
-  async function buildGameHTML() {
-    const project = JSON.parse(JSON.stringify(state.project));
-    project.activeSceneId = state.activeSceneId;
+  async function buildGameHTML(project) {
     const hasPython = project.scenes.some(scene => scene.entities.some(entity => entity.components?.ScriptBehavior?.pythonSource?.trim())) ||
       Object.values(project.prefabs || {}).some(prefab => JSON.stringify(prefab).includes('"pythonSource"'));
     if (!hasPython) return GameExporter.buildStandaloneHTML(project);
@@ -6397,21 +6409,216 @@ def on_event(event, dt, game):
     return GameExporter.buildStandaloneHTML(project, python);
   }
 
-  async function exportGameHTML(asApk = false) {
+  const fileStem = name => name.replace(/[^a-z0-9_-]/gi,'_').toLowerCase() || 'nexus-game';
+  const apkMime = 'application/vnd.android.package-archive';
+
+  async function openExportLibrary() {
+    const list = document.createElement('div');
+    showModal('Saved exports',list,[{label:'Close'}]);
+    list.textContent = 'Loading exports…';
     try {
-      const name = state.project.name || 'Nexus Game';
-      const orientation = state.project.settings?.orientation || (state.project.settings?.width > state.project.settings?.height ? 'landscape' : 'portrait');
-      const html = await buildGameHTML();
-      if (asApk === true) {
-        sendNative({kind: 'apk', name, orientation, html});
-        return;
+      const files = await StorageManager.exportStorage('exports','getAll');
+      list.replaceChildren();
+      if (!files.length) list.textContent = 'No exports saved inside Nexus yet.';
+      for (const file of files.sort((a,b) => b.created-a.created)) {
+        const row = document.createElement('div');
+        row.className = 'card';
+        const name = document.createElement('strong');
+        name.textContent = file.name;
+        const detail = document.createElement('p');
+        detail.className = 'muted';
+        detail.textContent = file.projectName+' · '+new Date(file.created).toLocaleString()+' · '+Math.max(1,Math.round(file.blob.size/1024))+' KB';
+        const save = document.createElement('button'), remove = document.createElement('button');
+        save.className = remove.className = 'btn btn-sm';
+        save.textContent = 'Save to device'; remove.textContent = 'Delete export';
+        save.onclick = () => downloadFile(file.name,file.blob,file.blob.type);
+        remove.onclick = async () => {
+          if (await confirmAction('Delete saved export','Remove '+file.name+' from Nexus?')) {
+            try { await StorageManager.exportStorage('exports','delete',file.id); }
+            catch (error) { toast(error.message,'err'); }
+          }
+          await openExportLibrary(); updateStorageChip();
+        };
+        row.append(name,detail,save,remove);
+        list.append(row);
       }
-      const filename = name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() + '.html';
-      downloadFile(filename, html, 'text/html');
-      toast(window.NexusNative ? 'Choose where to save the game' : 'Exported standalone ' + filename, 'ok');
-    } catch (e) {
-      toast('Export error: ' + e.message, 'err');
+    } catch (error) { list.textContent = error.message; }
+  }
+
+  async function readExportIcon(file) {
+    if (!file) return undefined;
+    if (file.size > 10*1024*1024 || !['image/png','image/jpeg','image/webp'].includes(file.type))
+      throw Error('Choose a PNG, JPEG or WebP image up to 10 MB.');
+    const image = await createImageBitmap(file);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 192;
+      const side = Math.max(image.width,image.height);
+      const w = 192*image.width/side, h = 192*image.height/side;
+      canvas.getContext('2d').drawImage(image,(192-w)/2,(192-h)/2,w,h);
+      const png = await new Promise(resolve => canvas.toBlob(resolve,'image/png'));
+      if (!png) throw Error('Could not read the launcher icon.');
+      return new Uint8Array(await png.arrayBuffer());
+    } finally { image.close(); }
+  }
+
+  async function getSigningKey(packageId) {
+    const existing = await StorageManager.exportStorage('signingKeys','get',packageId);
+    if (existing) return existing;
+    const key = await NexusApk.createKey();
+    try { await StorageManager.exportStorage('signingKeys','add',key,packageId); return key; }
+    catch (error) {
+      if (error.name !== 'ConstraintError') throw error;
+      return StorageManager.exportStorage('signingKeys','get',packageId);
     }
+  }
+
+  async function openExportDialog(initialFormat = 'zip') {
+    const body = document.createElement('div');
+    body.innerHTML = `
+      <div class="grid-2">
+        <div class="field"><label for="export-project">Project</label><select id="export-project"></select></div>
+        <div class="field"><label for="export-format">Format</label><select id="export-format">
+          <option value="zip">Editable project ZIP</option><option value="html">Standalone HTML game</option>
+          <option value="apk">Android APK</option></select></div>
+      </div>
+      <div class="field"><label for="export-destination">Save to</label><select id="export-destination">
+        <option value="device">Device files</option><option value="internal">Inside Nexus</option></select></div>
+      <div id="export-apk-fields" hidden>
+        <div class="grid-2">
+          <div class="field"><label for="export-name">App name</label><input class="input" id="export-name" maxlength="60"></div>
+          <div class="field"><label for="export-package">Package ID</label><input class="input mono" id="export-package" placeholder="com.example.mygame" autocapitalize="none" spellcheck="false"></div>
+          <div class="field"><label for="export-version">Version</label><input class="input" id="export-version" value="1.0.0"></div>
+          <div class="field"><label for="export-build">Build number</label><input class="input" id="export-build" type="number" min="1" max="999999999" value="1"></div>
+          <div class="field"><label for="export-orientation">Orientation</label><select id="export-orientation">
+            <option value="-1">Automatic</option><option value="7">Portrait</option><option value="6">Landscape</option></select></div>
+          <div class="field"><label for="export-icon">Launcher icon (optional)</label><input class="input" type="file" id="export-icon" accept="image/png,image/jpeg,image/webp"></div>
+        </div>
+        <details><summary>Signing key backup</summary>
+          <p class="muted">Nexus reuses your local key for this package ID. Keep an encrypted backup so you can update the game from another browser.</p>
+          <div class="field"><label for="export-password">Backup password</label><input class="input" id="export-password" type="password" autocomplete="new-password"></div>
+          <div class="field"><label for="export-key-file">Backup file to restore</label><input class="input" id="export-key-file" type="file" accept=".nexuskey,application/json"></div>
+          <div class="row"><button class="btn btn-sm" id="export-backup">Download backup</button><button class="btn btn-sm" id="export-restore">Restore backup</button></div>
+        </details>
+      </div>
+      <p id="export-status" class="muted" role="status"></p>`;
+    const el = id => body.querySelector('#export-'+id);
+    const projectSelect = el('project'), format = el('format'), destination = el('destination'), status = el('status');
+    const current = state.project;
+    if (!current) return;
+    const getProject = async () => {
+      if (projectSelect.value === current.id && state.project === current)
+        return {...current,activeSceneId:state.activeSceneId};
+      const project = await StorageManager.loadProject(projectSelect.value);
+      if (!project) throw Error('This project is no longer available.');
+      return project;
+    };
+    const options = () => ({
+      name:el('name').value.trim(),packageId:el('package').value.trim(),
+      version:el('version').value.trim(),build:Number(el('build').value),orientation:Number(el('orientation').value)
+    });
+    const applyDefaults = async () => {
+      const selected = projectSelect.value;
+      const project = await getProject();
+      if (projectSelect.value !== selected) return;
+      el('name').value = (project.name || 'Nexus Game').slice(0,60);
+      const slug = fileStem(project.name || 'game').replace(/-/g,'_').slice(0,55);
+      el('package').value = 'com.nexusgame.'+(/^[a-z]/.test(slug) ? slug : 'game_'+slug);
+      el('orientation').value = ({auto:'-1',portrait:'7',landscape:'6'})[project.settings?.orientation] ||
+        (project.settings?.width > project.settings?.height ? '6' : '7');
+    };
+    const useNative = () => window.NexusNative && format.value === 'apk' && destination.value === 'device';
+    const refreshFormat = () => {
+      el('apk-fields').hidden = format.value !== 'apk' || Boolean(useNative());
+      status.textContent = useNative() ? 'Android packaging settings open after you choose Continue.' : '';
+      if (exportButton) exportButton.textContent = useNative() ? 'Continue' : 'Export';
+    };
+    let exportButton;
+    projectSelect.append(new Option(current.name+' (open)',current.id));
+    format.value = initialFormat;
+    showModal('Export a project',body,[{label:'Close'},{label:'Export',cls:'btn-primary',onClick:async () => {
+      const type = format.value, place = destination.value, nativeApk = useNative();
+      const config = options(), icon = el('icon').files[0];
+      exportButton.disabled = true;
+      status.textContent = 'Preparing export…';
+      try {
+        const project = await getProject();
+        const stem = fileStem(project.name || 'game');
+        let blob, name;
+        if (type === 'zip') {
+          blob = buildProjectZIP(project); name = stem+'.nexus.zip';
+        } else {
+          const html = await buildGameHTML(project);
+          if (nativeApk) {
+            if (body.isConnected) closeModal();
+            const orientation = ({'-1':'auto','7':'portrait','6':'landscape'})[config.orientation] || 'auto';
+            sendNative({kind:'apk',name:project.name,orientation,html}); return;
+          }
+          if (type === 'apk') {
+            NexusApk.validate(config);
+            status.textContent = 'Building and signing APK on this device…';
+            config.icon = await readExportIcon(icon);
+            const template = await fetch('player-template.json');
+            if (!template.ok) throw Error('Could not load the Android player. Reload Nexus and try again.');
+            const key = await getSigningKey(config.packageId);
+            blob = await NexusApk.build(await template.json(),html,config,key);
+            name = fileStem(config.name)+'-'+config.version+'.apk';
+          } else {
+            blob = new Blob([html],{type:'text/html'}); name = stem+'.html';
+          }
+        }
+        if (place === 'internal') {
+          const id = crypto.randomUUID();
+          await StorageManager.exportStorage('exports','add',{id,name,blob,projectName:project.name,created:Date.now()},id);
+          status.textContent = 'Saved in Nexus → Saved exports.';
+          updateStorageChip();
+        } else {
+          status.textContent = 'Ready to save.';
+          // Keep a user-initiated save available for browsers that block automatic downloads.
+          const save = document.createElement('button');
+          save.className = 'btn btn-sm'; save.textContent = 'Save '+name;
+          save.onclick = () => downloadFile(name,blob,blob.type || apkMime);
+          status.append(' ',save);
+          downloadFile(name,blob,blob.type || apkMime);
+        }
+      } catch (error) { status.textContent = error.message; }
+      finally { exportButton.disabled = false; }
+    }}]);
+    exportButton = document.querySelector('#modal-ftr .btn-primary');
+    refreshFormat();
+    projectSelect.onchange = () => applyDefaults().catch(error => { status.textContent = error.message; });
+    format.onchange = destination.onchange = refreshFormat;
+    el('backup').onclick = async () => {
+      const config = options(), password = el('password').value;
+      try {
+        NexusApk.validate(config);
+        if (password.length < 8) throw Error('Use a backup password of at least 8 characters.');
+        const key = await getSigningKey(config.packageId);
+        const backup = await NexusApk.backupKey(key,password,config.packageId);
+        downloadFile(config.packageId+'.nexuskey',backup,'application/json');
+        el('password').value = '';
+        status.textContent = 'Encrypted backup ready.';
+      } catch (error) { status.textContent = error.message; }
+    };
+    el('restore').onclick = async () => {
+      const config = options(), file = el('key-file').files[0], password = el('password').value;
+      try {
+        NexusApk.validate(config);
+        if (!file || file.size > 32*1024) throw Error('Choose a Nexus signing key backup.');
+        const key = await NexusApk.restoreKey(await file.text(),password,config.packageId);
+        const existing = await StorageManager.exportStorage('signingKeys','get',config.packageId);
+        if (existing?.certificate !== undefined && existing.certificate !== key.certificate)
+          throw Error('A different key is already stored for this package ID.');
+        if (!existing) await StorageManager.exportStorage('signingKeys','add',key,config.packageId);
+        el('password').value = '';
+        status.textContent = 'Signing key restored.';
+      } catch (error) { status.textContent = error.message; }
+    };
+    await applyDefaults();
+    try {
+      for (const project of await StorageManager.listProjects())
+        if (project.id !== current.id) projectSelect.append(new Option(project.name,project.id));
+    } catch (error) { status.textContent = 'Saved projects unavailable: '+error.message; }
   }
 
   // --- Event Wiring ---
@@ -6478,9 +6685,6 @@ def on_event(event, dt, game):
       }
     });
     setBlockMode('blocks');
-    const apk = document.getElementById('btn-export-apk');
-    apk.hidden = !window.NexusNative;
-    apk.onclick = () => exportGameHTML(true);
     window.nexusHandleBack = () => {
       if (document.getElementById('modal-backdrop').classList.contains('open')) { closeModal(); return true; }
       if (document.getElementById('preview-overlay').classList.contains('open')) { stopPreview(); return true; }
@@ -6543,11 +6747,11 @@ def on_event(event, dt, game):
       const n = await promptInput('New Project', 'Project Name:', 'My Mobile Game');
       if (n) createBlankProject(n);
     };
-    document.getElementById('btn-export-proj-json').onclick = exportProjectZIP;
+    document.getElementById('btn-export-library').onclick = openExportLibrary;
     document.getElementById('btn-import-proj').onclick = () => document.getElementById('file-import-json').click();
     document.getElementById('file-import-json').onchange = async ev => {const file=ev.target.files[0];if(!file)return;try{await importProjectZIP(file);}catch(err){toast('ZIP import failed: '+err.message,'err');}ev.target.value='';};
-    document.getElementById('btn-export-game').onclick = exportGameHTML;
-    document.getElementById('btn-export-game-2').onclick = exportGameHTML;
+    document.getElementById('btn-export-game').onclick = () => openExportDialog();
+    document.getElementById('btn-export-game-2').onclick = () => openExportDialog('html');
     document.getElementById('btn-refresh-projs').onclick = refreshProjectsList;
     document.getElementById('btn-start-tut').onclick = () => showTutorialStep(0);
     document.getElementById('btn-tut-next').onclick = () => showTutorialStep(state.tutorialStep + 1);

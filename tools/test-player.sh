@@ -37,3 +37,16 @@ unzip -p "$tmp/game.apk" assets/game.html > "$tmp/game.html"
 unzip -p "$tmp/game.apk" "$icon_path" > "$tmp/packaged-icon.png"
 cmp tools/smoke-game.html "$tmp/game.html"
 cmp "$tmp/icon.png" "$tmp/packaged-icon.png"
+
+node tools/test-web-apk.cjs "$tmp/browser.apk" "$tmp/icon.png"
+"$tools/apksigner" verify --verbose --min-sdk-version 24 "$tmp/browser.apk"
+"$tools/zipalign" -c 4 "$tmp/browser.apk"
+info=$("$tools/aapt" dump badging "$tmp/browser.apk")
+grep -F "package: name='com.carlos.nexus.offlinegame' versionCode='42' versionName='2.3.4'" <<<"$info"
+grep -F "application-label:'Nexus لعبة 🎮'" <<<"$info"
+manifest=$("$tools/aapt" dump xmltree "$tmp/browser.apk" AndroidManifest.xml)
+grep -E 'screenOrientation.*0x7$' <<<"$manifest"
+unzip -p "$tmp/browser.apk" assets/game.html > "$tmp/browser.html"
+unzip -p "$tmp/browser.apk" "$icon_path" > "$tmp/browser-icon.png"
+cmp tools/smoke-game.html "$tmp/browser.html"
+cmp "$tmp/icon.png" "$tmp/browser-icon.png"
