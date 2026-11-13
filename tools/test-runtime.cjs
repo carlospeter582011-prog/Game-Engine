@@ -114,6 +114,14 @@ const workshop = vm.runInContext(`
     const runtime = new NexusRuntime.GameRuntime(project,null);
     runtime.init();
     const entity = runtime.entityMap.get('runner');
+    runtime.keys.add('ArrowRight');
+    for (let i=0;i<20;i++) runtime.step(1/60);
+    runtime.keys.delete('ArrowRight');
+    if (entity.components.Transform.x !== 95) errors.push('The runner moved horizontally');
+    runtime.keys.add('Space');
+    runtime.step(1/60);
+    runtime.keys.delete('Space');
+    if (entity.components.RigidBody.vy >= 0) errors.push('The runner did not jump');
     const make = (nodes,edges,id='test') => ({id,nodes:nodes.map(([type,params],i) => ({id:'n'+i,type,params})),
       edges:edges.map(([fromNode,fromPort,toNode,toPort]) => ({fromNode:'n'+fromNode,fromPort,toNode:'n'+toNode,toPort:toPort || 'in'}))});
     const run = (nodes,edges,id) => {

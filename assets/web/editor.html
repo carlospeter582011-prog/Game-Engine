@@ -1441,7 +1441,7 @@ function createNexusRuntime(root) {
       const jumpPressed = this.virtualAxes.jump || this.keys.has('Space') || this.keys.has('ArrowUp') || this.keys.has('KeyW');
 
       if (cc.mode === 'platformer' && rb) {
-        const targetVx = ix * (cc.speed || 180);
+        const targetVx = ix * (cc.speed ?? 180);
         const rate = Math.abs(ix) > 0.05 ? (cc.accel || 1200) : (cc.decel || 900);
         if (rb.vx < targetVx) rb.vx = Math.min(targetVx, rb.vx + rate * dt);
         else if (rb.vx > targetVx) rb.vx = Math.max(targetVx, rb.vx - rate * dt);
