@@ -124,6 +124,135 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 
 #python-panel{margin:10px;flex:1}
 #python-source{display:block;resize:vertical;tab-size:4;margin:5px 0 9px;white-space:pre}
+/* Editing surfaces take the free space; panels scroll within their own region. */
+:root{--nav-h:46px;--hdr-h:46px;--bg:#0d131c;--bg2:#121c29;--bg3:#1b293b;--border:#2b3d52;--muted:#a1b0c2}
+#main-area,.workspace,.subpanel,.scroll-y,.canvas-wrap,#preview-stage{min-width:0;min-height:0}
+.workspace-toolbar{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid var(--border);background:var(--bg2);flex:none;min-width:0}
+.workspace-toolbar select{width:auto;flex:1;min-width:0;min-height:34px;padding:4px 7px}
+.workspace-toolbar button{white-space:nowrap}
+.paint-toolbar{flex-wrap:nowrap}
+.icon-action{width:34px;padding:0;flex:none}
+#topbar{padding-inline:8px}
+.brand{min-width:0;flex:1}
+#hdr-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.top-actions{gap:4px}
+.top-actions .btn-icon{min-width:34px;width:34px}
+.nav-ico{font-size:15px}
+.nav-btn{min-width:0;font-size:10px}
+#topbar,#bottom-nav,.workspace-toolbar,.subtabs{user-select:none}
+.btn:focus-visible,.tool-btn:focus-visible,.nav-btn:focus-visible,.subtab:focus-visible{outline:2px solid var(--accent2);outline-offset:-2px}
+#main-area .scroll-y{width:100%;max-width:1120px;margin-inline:auto;overscroll-behavior:contain}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid-2>*,.grid-3>*,.card-title>*{min-width:0}
+.card-title,.row-between{overflow-wrap:anywhere}
+#assets-grid .muted,.entity-item>div:first-child{min-width:0;overflow-wrap:anywhere}
+#modal-backdrop{padding:8px}
+#modal-box{max-height:calc(100dvh - 16px - var(--safe-b) - var(--safe-t))}
+#modal-hdr,#modal-ftr{flex:none}
+#modal-body{min-height:0;overscroll-behavior:contain}
+#modal-ftr{flex-wrap:wrap;gap:5px;padding:7px 10px}
+.options-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.options-grid .btn{min-height:40px}
+.options-grid label{font-size:12px}
+.options-grid label select{display:block;margin-top:3px}
+.block-detail pre{overflow-wrap:anywhere}
+.block-detail>.btn{margin:4px 5px 0 0}
+#node-inspector-bar{flex:none;padding:4px 8px;max-height:none!important}
+#node-inspector-bar strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#node-inspector-bar .row-between{gap:6px}
+#graph-hint{max-width:calc(100% - 85px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+#graph-canvas-wrap .floating-bar{flex-wrap:nowrap}
+#logic-tabs{padding:3px 8px}
+#graph-toolbar{padding:4px 8px}
+#graph-toolbar .row{gap:5px}
+#graph-selector{flex:1;min-width:0}
+#python-panel{display:flex;flex-direction:column;min-height:0;min-width:0;margin:0;padding:6px 8px;border:0;border-radius:0;gap:5px}
+#python-panel select,#python-panel .row,#python-status{flex:none}
+#python-source{flex:1;min-height:42px;height:auto;resize:none;margin:0;overscroll-behavior:contain}
+#python-status:empty{display:none}
+#hierarchy-sheet{flex:none;min-width:0;max-height:38%}
+#hierarchy-sheet .sheet-hdr{padding:4px 7px;gap:5px;flex-wrap:nowrap}
+#hierarchy-sheet .sheet-hdr .row{gap:4px;min-width:0}
+#hierarchy-sheet .sheet-hdr .row:first-of-type{flex:1}
+#scene-selector{min-width:0;width:100%!important;max-width:none!important}
+#hierarchy-sheet .btn{white-space:nowrap}
+#hierarchy-content{min-height:0}
+.inspector-picker{display:grid;gap:5px;padding:8px}
+#inspector-body .field{min-width:0}
+#create-nav{display:none}
+#create-subtabs{padding:3px 8px;justify-content:center}
+#create-subtabs .subtab{flex:0 0 auto}
+.paint-palette{display:flex;align-items:center;gap:4px;overflow-x:auto;flex:none;min-height:34px;padding:2px 8px;border-bottom:1px solid var(--border);background:#101925;scrollbar-width:none;overscroll-behavior-x:contain}
+.paint-palette::-webkit-scrollbar{display:none}
+.paint-palette .btn{flex:none;white-space:nowrap;min-height:29px;padding:3px 8px}
+#px-color{width:34px;height:34px;flex:none;padding:1px;border:0;background:none}
+#px-palette .swatch{width:28px;height:28px}
+#tm-canvas-wrap.is-pan canvas{touch-action:none;cursor:grab}
+#tm-canvas-wrap.is-pan canvas:active{cursor:grabbing}
+#tm-canvas-actions{position:absolute;right:8px;bottom:8px;width:max-content;z-index:5}
+#sub-tilemap{position:relative}
+#tm-canvas-actions .tool-btn{min-height:32px}
+.anim-layout{display:grid;grid-template-rows:minmax(0,1fr) minmax(70px,30%);gap:6px;padding:6px;min-height:0;flex:1}
+.anim-layout>.card{margin:0;min-width:0;min-height:0;padding:7px;overflow:auto}
+.anim-stage{display:flex;flex-direction:column}
+.anim-stage>.row-between,.anim-stage>.grid-3{flex:none}
+#anim-preview-canvas{display:block;flex:1;width:100%;height:0;min-height:24px;border:1px solid var(--border);border-radius:8px;background:#090d12}
+#preview-bar{height:auto;min-height:40px;padding:3px 8px}
+#preview-bar .row{flex-wrap:nowrap}
+#preview-canvas{display:block;flex:none;max-width:none;max-height:none;box-shadow:none}
+#prev-focus,#exit-focus{position:absolute;right:8px;z-index:25}
+#prev-focus{bottom:8px;min-width:38px;min-height:36px;background:rgba(20,34,51,.88)}
+#exit-focus{bottom:calc(8px + var(--safe-b));min-height:34px;background:rgba(20,34,51,.92)}
+#app.focused-workspace #topbar,#app.focused-workspace #bottom-nav,#app.focused-workspace #tutorial-bar,
+#app.focused-workspace #hierarchy-sheet,#preview-overlay.preview-focused #preview-bar{display:none}
+#app.focused-workspace #main-area{margin-bottom:var(--safe-b)}
+#app.focused-workspace #tm-canvas-actions{bottom:48px}
+#app.focused-workspace #ws-scene .floating-bar .pill-group{max-width:100%}
+@media(max-width:640px){
+  #create-nav{display:flex}
+  #create-subtabs{display:none}
+  .scroll-y{padding:8px}
+  .card{padding:9px;margin-bottom:7px}
+  #hierarchy-sheet .sheet-hdr>.row .btn{padding-inline:6px}
+  #hierarchy-sheet .sheet-hdr>.row select{font-size:12px;padding-inline:3px!important}
+  #graph-toolbar{gap:5px}
+  #graph-toolbar .btn{padding-inline:6px}
+  #preview-bar .btn{min-height:34px}
+  #tutorial-bar{max-height:30dvh;overflow-y:auto;padding-block:4px}
+}
+@media(max-width:370px){
+  .brand-dot{display:none}
+  .brand{font-size:12px}
+  .top-actions .btn-icon{min-width:30px;width:30px}
+  .top-actions .btn-sm{padding-inline:6px}
+  .nav-btn{font-size:9px}
+  #hierarchy-sheet .sheet-hdr{gap:3px}
+  #hierarchy-sheet .sheet-hdr .btn{padding-inline:4px}
+}
+@media(min-width:650px) and (min-height:500px){
+  .anim-layout{grid-template-columns:minmax(0,1fr) minmax(220px,33%);grid-template-rows:minmax(0,1fr)}
+}
+@media(min-width:860px){
+  #ws-scene .bottom-sheet{width:280px;max-height:none}
+  #ws-scene .bottom-sheet:has(.sheet-body[hidden]){width:auto;height:auto;max-width:310px;align-self:flex-end}
+}
+@media(orientation:landscape) and (max-height:540px){
+  :root{--hdr-h:38px;--nav-h:36px}
+  #bottom-nav .nav-btn{flex-direction:row;gap:4px}
+  .nav-ico{font-size:13px}
+  #create-nav{display:flex}
+  #create-subtabs{display:none}
+  #ws-create .subpanel.active{position:relative}
+  #ws-create:has(.paint-toolbar) #create-nav{padding-block:2px}
+  #ws-create:has(#sub-pixel.active,#sub-tilemap.active) #create-nav{position:absolute;left:0;top:0;width:132px;z-index:6;border-bottom:0}
+  #ws-create:has(#sub-pixel.active,#sub-tilemap.active) .paint-toolbar{padding-left:138px}
+  #python-panel{display:grid;grid-template-columns:minmax(100px,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto}
+  #python-panel .row{grid-area:1/2;justify-content:flex-end}
+  #python-source{grid-area:2/1/3/3;height:100%}
+  #python-status{grid-area:3/1/4/3}
+  .anim-layout{grid-template-columns:minmax(0,1fr) minmax(165px,34%);grid-template-rows:minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
@@ -131,10 +260,11 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
   <header id="topbar">
     <div class="brand"><span class="brand-dot"></span><span id="hdr-title">NEXUS ENGINE</span></div>
     <div class="top-actions">
-      <button class="btn btn-sm btn-icon" id="btn-undo" aria-label="Undo" title="Undo">↩</button>
-      <button class="btn btn-sm btn-icon" id="btn-redo" aria-label="Redo" title="Redo">↪</button>
+      <button class="btn btn-sm btn-icon" id="btn-undo" aria-label="Undo" title="Undo">↶</button>
+      <button class="btn btn-sm btn-icon" id="btn-redo" aria-label="Redo" title="Redo">↷</button>
+      <button class="btn btn-sm btn-icon" id="btn-focus" aria-label="Focus workspace" title="Focus workspace" aria-pressed="false">⛶</button>
       <button class="btn btn-sm" id="btn-save" aria-label="Save Project">Save</button>
-      <button class="btn btn-sm btn-ok" id="btn-play" aria-label="Play Preview">▶ Play</button>
+      <button class="btn btn-sm btn-ok" id="btn-play" aria-label="Play Preview">Play</button>
     </div>
   </header>
 
@@ -221,6 +351,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
       </div>
       <div class="bottom-sheet" id="hierarchy-sheet">
         <div class="sheet-hdr">
+          <button class="btn btn-sm" id="toggle-hierarchy" aria-expanded="false" aria-controls="hierarchy-content">Objects <span aria-hidden="true">⌃</span></button>
           <div class="row">
             <select id="scene-selector" style="min-height:30px;padding:2px 6px;width:auto;max-width:130px;"></select>
             <button class="btn btn-sm" id="btn-scene-menu">Scenes</button>
@@ -230,7 +361,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
             <button class="btn btn-sm" id="btn-paste-entity" title="Paste">📋</button>
           </div>
         </div>
-        <div class="sheet-body">
+        <div class="sheet-body" id="hierarchy-content" hidden>
           <div class="row" style="margin-bottom:6px;">
             <input class="input" id="hierarchy-search" placeholder="Search entities or tags..." style="min-height:32px;padding:4px 8px;">
             <button class="btn btn-sm" id="btn-align-menu">Align</button>
@@ -250,15 +381,13 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 
     <!-- VISUAL SCRIPTING -->
     <section id="ws-logic" class="workspace">
-      <div class="subtabs" aria-label="Logic editor">
+      <div class="subtabs" id="logic-tabs" aria-label="Logic editor">
         <button class="subtab active" id="logic-blocks">Blocks</button>
         <button class="subtab" id="logic-python">Python</button>
       </div>
       <div id="python-panel" class="card" style="overflow:auto" hidden>
-        <label for="python-object">Object</label>
-        <select id="python-object"></select>
-        <label for="python-source">Python script</label>
-        <textarea id="python-source" class="input mono" rows="13" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <select id="python-object" aria-label="Script object"></select>
+        <textarea id="python-source" class="input mono" aria-label="Python script" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
         <div class="row">
           <button class="btn btn-primary btn-sm" id="python-save">Validate &amp; Apply</button>
           <button class="btn btn-sm" id="python-example">Example</button>
@@ -291,77 +420,84 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
 
     <!-- CREATE STUDIO (PIXEL, TILEMAP, ANIM, AUDIO, ASSETS, UI) -->
     <section id="ws-create" class="workspace">
-      <div class="subtabs" id="create-subtabs">
-        <button class="subtab active" data-sub="pixel">🎨 Pixel Art</button>
-        <button class="subtab" data-sub="tilemap">🧱 Tilemap</button>
-        <button class="subtab" data-sub="anim">🎬 Animation</button>
-        <button class="subtab" data-sub="audio">🔊 Audio Synth</button>
-        <button class="subtab" data-sub="ui">📱 UI Builder</button>
-        <button class="subtab" data-sub="assets">📦 Assets &amp; Prefabs</button>
+      <div class="workspace-toolbar" id="create-nav">
+        <select id="create-picker" aria-label="Create workspace">
+          <option value="pixel">Pixel Art</option><option value="tilemap">Tilemap</option>
+          <option value="anim">Animation</option><option value="audio">Audio</option>
+          <option value="ui">UI Builder</option><option value="assets">Assets &amp; Prefabs</option>
+        </select>
+      </div>
+      <div class="subtabs" id="create-subtabs" aria-label="Create workspace">
+        <button class="subtab active" data-sub="pixel">Pixel Art</button>
+        <button class="subtab" data-sub="tilemap">Tilemap</button>
+        <button class="subtab" data-sub="anim">Animation</button>
+        <button class="subtab" data-sub="audio">Audio</button>
+        <button class="subtab" data-sub="ui">UI Builder</button>
+        <button class="subtab" data-sub="assets">Assets &amp; Prefabs</button>
       </div>
 
       <!-- Pixel Art Editor -->
       <div id="sub-pixel" class="subpanel active">
-        <div style="padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-          <button class="tool-btn active" data-pxtool="pencil">✏️</button>
-          <button class="tool-btn" data-pxtool="eraser">🧹</button>
-          <button class="tool-btn" data-pxtool="fill">🪣</button>
-          <button class="tool-btn" data-pxtool="line">╱</button>
-          <button class="tool-btn" data-pxtool="rect">▭</button>
-          <button class="tool-btn" data-pxtool="ellipse">◯</button>
-          <button class="tool-btn" data-pxtool="pick">💧</button>
-          <input type="color" id="px-color" value="#38bdf8" style="width:34px;height:32px;border:none;background:none;">
-          <select id="px-size" style="width:78px;min-height:32px;padding:2px 4px;"><option value="16">16×16</option><option value="32">32×32</option><option value="64">64×64</option></select>
-          <button class="btn btn-sm" id="px-undo" aria-label="Undo pixel edit">↩</button><button class="btn btn-sm" id="px-redo" aria-label="Redo pixel edit">↪</button>
-          <button class="btn btn-sm" id="px-flip-h">⇄</button>
-          <button class="btn btn-sm" id="px-rot">↻</button>
-          <button class="btn btn-sm btn-primary" id="px-save-asset">Save Asset</button>
-          <button class="btn btn-sm" id="px-export-png">PNG</button>
-          <button class="btn btn-sm" id="px-import-png">Import</button>
-          <input type="file" id="px-file-in" accept="image/png,image/*" hidden>
+        <div class="workspace-toolbar paint-toolbar">
+          <select id="px-tool" aria-label="Pixel tool">
+            <option value="pencil">Draw</option><option value="eraser">Erase</option><option value="fill">Fill</option>
+            <option value="line">Line</option><option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><option value="pick">Pick color</option>
+          </select>
+          <input type="color" id="px-color" value="#38bdf8" aria-label="Pixel color">
+          <button class="btn btn-sm icon-action" id="px-undo" aria-label="Undo pixel edit" title="Undo">↶</button>
+          <button class="btn btn-sm icon-action" id="px-redo" aria-label="Redo pixel edit" title="Redo">↷</button>
+          <button class="btn btn-sm" id="px-options" aria-label="Pixel art options">Options</button>
         </div>
-        <div class="canvas-wrap" id="px-canvas-wrap">
-          <canvas id="px-canvas"></canvas>
-          <div class="floating-bar" style="top:auto;bottom:8px;">
-            <div class="pill-group" id="px-palette"></div>
-            <div class="pill-group">
-              <button class="tool-btn" id="px-layer-toggle">Layer: <span id="px-layer-idx">1</span></button>
-              <button class="tool-btn" id="px-layer-add">+L</button>
-              <button class="tool-btn" id="px-clear">Clear</button>
-            </div>
-          </div>
+        <div class="paint-palette" id="px-palette" aria-label="Pixel colors"></div>
+        <div class="canvas-wrap" id="px-canvas-wrap"><canvas id="px-canvas"></canvas></div>
+        <div id="px-option-controls" class="options-grid" hidden>
+          <label>Canvas size<select id="px-size"><option value="16">16×16</option><option value="32">32×32</option><option value="64">64×64</option></select></label>
+          <button class="btn btn-sm" id="px-layer-toggle">Layer <span id="px-layer-idx">1</span></button>
+          <button class="btn btn-sm" id="px-layer-add">Add layer</button>
+          <button class="btn btn-sm" id="px-clear">Clear layer</button>
+          <button class="btn btn-sm" id="px-flip-h">Flip horizontally</button>
+          <button class="btn btn-sm" id="px-rot">Rotate</button>
+          <button class="btn btn-sm btn-primary" id="px-save-asset">Save asset</button>
+          <button class="btn btn-sm" id="px-export-png">Export PNG</button>
+          <button class="btn btn-sm" id="px-import-png">Import image</button>
         </div>
+        <input type="file" id="px-file-in" accept="image/png,image/*" hidden>
       </div>
 
       <!-- Tilemap Editor -->
       <div id="sub-tilemap" class="subpanel">
-        <div style="padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-          <button class="tool-btn active" data-tmtool="pencil">Paint</button>
-          <button class="tool-btn" data-tmtool="eraser">Erase</button>
-          <button class="tool-btn" data-tmtool="fill">Fill</button>
-          <button class="tool-btn" data-tmtool="rect">Rect</button>
-          <button class="tool-btn" data-tmtool="line">Line</button>
-          <button class="tool-btn" data-tmtool="pan">Pan</button>
-          <select id="tm-select" aria-label="Tilemap layer" style="width:130px"></select>
-          <button class="btn btn-sm btn-primary" id="tm-ensure">+ Tilemap</button>
-          <button class="btn btn-sm" id="tm-import">Import Tiled JSON</button>
-          <input type="file" id="tm-file" accept=".json,application/json" hidden>
-          <button class="btn btn-sm" id="tm-size">Map size</button>
-          <button class="btn btn-sm" id="tm-ai">✦ Map assistant</button>
-          <button class="btn btn-sm" id="tm-undo" title="Undo tilemap edit" aria-label="Undo tilemap edit">↩</button>
-          <button class="btn btn-sm" id="tm-redo" title="Redo tilemap edit" aria-label="Redo tilemap edit">↪</button>
-          <button class="btn btn-sm" id="tm-zoom-out" aria-label="Zoom out">−</button>
-          <button class="btn btn-sm" id="tm-zoom-in" aria-label="Zoom in">+</button>
-          <button class="btn btn-sm" id="tm-export">Export TM</button>
+        <div class="workspace-toolbar paint-toolbar">
+          <select id="tm-tool" aria-label="Tilemap tool">
+            <option value="pencil">Paint</option><option value="eraser">Erase</option><option value="fill">Fill</option>
+            <option value="rect">Rectangle</option><option value="line">Line</option><option value="pan">Pan</option>
+          </select>
+          <select id="tm-select" aria-label="Tilemap layer"></select>
+          <button class="btn btn-sm" id="tm-options" aria-label="Tilemap options">Options</button>
         </div>
-        <div style="padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;overflow-x:auto;" id="tm-palette"></div>
-        <div class="canvas-wrap" id="tm-canvas-wrap"><canvas id="tm-canvas"></canvas></div>
+        <div class="paint-palette" id="tm-palette" aria-label="Tile palette"></div>
+        <div class="canvas-wrap" id="tm-canvas-wrap">
+          <canvas id="tm-canvas"></canvas>
+        </div>
+        <div id="tm-canvas-actions" class="pill-group" aria-label="Tilemap view controls">
+          <button class="tool-btn" id="tm-zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+          <button class="tool-btn" id="tm-zoom-fit" aria-label="Fit map" title="Fit map">Fit</button>
+          <button class="tool-btn" id="tm-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+        </div>
+        <div id="tm-option-controls" class="options-grid" hidden>
+          <button class="btn btn-sm btn-primary" id="tm-ensure">Add tilemap</button>
+          <button class="btn btn-sm" id="tm-size">Map size</button>
+          <button class="btn btn-sm" id="tm-undo">Undo tile edit</button>
+          <button class="btn btn-sm" id="tm-redo">Redo tile edit</button>
+          <button class="btn btn-sm" id="tm-import">Import Tiled JSON</button>
+          <button class="btn btn-sm" id="tm-export">Export tilemap</button>
+        </div>
+        <input type="file" id="tm-file" accept=".json,application/json" hidden>
       </div>
 
       <!-- Animation Timeline -->
       <div id="sub-anim" class="subpanel">
-        <div class="scroll-y">
-          <div class="card">
+        <div class="anim-layout">
+          <div class="card anim-stage">
             <div class="row-between" style="margin-bottom:8px;">
               <select id="anim-clip-sel" style="max-width:170px;"></select>
               <div class="row">
@@ -374,9 +510,9 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
               <div class="field"><label>Loop</label><select id="anim-loop"><option value="1">Loop</option><option value="2">Ping-Pong</option><option value="0">Once</option></select></div>
               <div class="field"><label>Scrub (s)</label><input class="input" type="number" step="0.05" id="anim-time"></div>
             </div>
-            <canvas id="anim-preview-canvas" width="240" height="120" style="width:100%;height:110px;background:#090d12;border-radius:8px;border:1px solid var(--border);"></canvas>
+            <canvas id="anim-preview-canvas" width="240" height="120"></canvas>
           </div>
-          <div class="card">
+          <div class="card anim-tracks">
             <div class="card-title"><span>Tracks &amp; Keyframes</span><button class="btn btn-sm" id="anim-add-track">+ Track</button></div>
             <div id="anim-tracks-list"></div>
           </div>
@@ -491,6 +627,7 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     </section>
   </main>
 
+  <button class="btn" id="exit-focus" hidden>Exit focus</button>
   <nav id="bottom-nav" aria-label="Workspace Navigation">
     <button class="nav-btn active" data-ws="home"><span class="nav-ico">🏠</span><span>Home</span></button>
     <button class="nav-btn" data-ws="scene"><span class="nav-ico">🎮</span><span>Scene</span></button>
@@ -507,16 +644,18 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     <div class="row">
       <button class="btn btn-sm btn-err" id="prev-stop">■ Stop</button>
       <button class="btn btn-sm" id="prev-pause">⏸ Pause</button>
-      <button class="btn btn-sm" id="prev-restart">↻ Restart</button>
-      <button class="btn btn-sm" id="prev-step">Step</button>
+      <button class="btn btn-sm" id="prev-options" aria-label="Preview options">Options</button>
     </div>
-    <div class="row">
-      <button class="btn btn-sm" id="prev-dbg-toggle">Debug</button>
+    <div id="prev-option-controls" class="options-grid" hidden>
+      <button class="btn btn-sm" id="prev-restart">Restart</button>
+      <button class="btn btn-sm" id="prev-step">Step a frame</button>
+      <button class="btn btn-sm" id="prev-dbg-toggle">Debug overlay</button>
       <button class="btn btn-sm" id="prev-device">Device preview</button>
     </div>
   </div>
   <div id="preview-stage">
     <canvas id="preview-canvas"></canvas>
+    <button class="btn btn-sm" id="prev-focus" aria-label="Hide preview controls" aria-pressed="false" title="Hide preview controls">⛶</button>
     <div id="preview-debug-hud" style="display:none;"></div>
   </div>
 </div>
@@ -3132,7 +3271,20 @@ const App = (() => {
     if (box) box.textContent = state.logs.join('\n');
   }
 
+  let restoreModalControls;
+  function showControls(title, controls) {
+    if (restoreModalControls) closeModal();
+    const home = controls.parentElement;
+    controls.hidden = false;
+    showModal(title, controls, [{label:'Done'}]);
+    restoreModalControls = () => {
+      controls.hidden = true;
+      home.appendChild(controls);
+    };
+  }
+
   function showModal(title, bodyEl, buttons = []) {
+    if (restoreModalControls) closeModal();
     document.getElementById('modal-title').textContent = title;
     const body = document.getElementById('modal-body');
     body.innerHTML = '';
@@ -3151,6 +3303,11 @@ const App = (() => {
   }
 
   function closeModal() {
+    if (restoreModalControls) {
+      const restore = restoreModalControls;
+      restoreModalControls = null;
+      restore();
+    }
     document.getElementById('modal-backdrop').classList.remove('open');
   }
 
@@ -3486,8 +3643,8 @@ const App = (() => {
     const r = c.parentElement.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (r.width > 0 && r.height > 0) {
-      c.width = Math.floor(r.width * dpr);
-      c.height = Math.floor(r.height * dpr);
+      const width = Math.floor(r.width * dpr), height = Math.floor(r.height * dpr);
+      if (c.width !== width || c.height !== height) { c.width = width; c.height = height; }
     }
   }
 
@@ -3734,7 +3891,8 @@ const App = (() => {
     body.replaceChildren();
     const picker = document.createElement('div');
     picker.className = 'card';
-    picker.innerHTML = '<div class="card-title">Inspector · Direct Object Selection</div><div class="field"><label>Search name, tag, or ID</label><input class="input" id="insp-search" placeholder="Search scene objects…"></div><div class="field"><label>Selected Object</label><select id="insp-object"></select></div><div class="field"><label>Component</label><select id="insp-component"></select></div>';
+    picker.classList.add('inspector-picker');
+    picker.innerHTML = '<input class="input" id="insp-search" aria-label="Filter objects by name, tag or ID" placeholder="Filter objects…"><div class="grid-2"><select id="insp-object" aria-label="Selected object"></select><select id="insp-component" aria-label="Component filter"></select></div>';
     body.appendChild(picker);
     const search = picker.querySelector('#insp-search');
     const objectSelect = picker.querySelector('#insp-object');
@@ -3919,7 +4077,7 @@ const App = (() => {
       }
       if (cName === 'Tilemap') {
         const resize = document.createElement('button'); resize.className = 'btn btn-sm'; resize.textContent = 'Resize map';
-        resize.onclick = () => openTilemapSettings(false, ent); card.append(resize);
+        resize.onclick = () => openTilemapSettings(ent); card.append(resize);
       }
       body.appendChild(card);
     }
@@ -4257,23 +4415,30 @@ const App = (() => {
     const n = g?.nodes.find(x => x.id === state.selectedNodeId);
     if (!n) { bar.style.display = 'none'; return; }
     bar.style.display = 'block';
-    bar.innerHTML = `<div class="row-between" style="margin-bottom:6px;"><strong>Node: ${esc(n.type)}</strong><button class="btn btn-sm btn-err" id="del-node-btn">Delete Node</button></div><div class="grid-2" id="node-params-grid"></div>`;
-    const explain=document.createElement('pre');explain.className='mono';explain.style.whiteSpace='pre-wrap';explain.textContent=nodePythonPreview(n);bar.insertBefore(explain,bar.querySelector('#node-params-grid'));
+    bar.innerHTML = `<div class="row-between"><strong>${esc(n.type)}</strong><button class="btn btn-sm" id="block-settings">Settings</button></div><div class="block-detail" hidden><div class="grid-2" id="node-params-grid"></div></div>`;
+    const details = bar.querySelector('.block-detail');
+    const menu = bar.querySelector('#block-settings');
+    menu.onclick = () => showControls(n.type, details);
+    const remove = document.createElement('button');
+    remove.className = 'btn btn-sm btn-err'; remove.id = 'del-node-btn'; remove.textContent = 'Delete block';
+    details.append(remove);
+    const explain=document.createElement('pre');explain.className='mono';explain.style.whiteSpace='pre-wrap';explain.textContent=nodePythonPreview(n);details.prepend(explain);
     const stop = document.createElement('button');
     const breakpoint = g.id+':'+n.id;
     stop.className = 'btn btn-sm';
     stop.textContent = state.breakpoints.has(breakpoint) ? 'Remove breakpoint' : 'Pause after block';
     stop.onclick = () => {
       if (!state.breakpoints.delete(breakpoint)) state.breakpoints.add(breakpoint);
-      renderNodeInspector();
+      stop.textContent = state.breakpoints.has(breakpoint) ? 'Remove breakpoint' : 'Pause after block';
     };
-    bar.querySelector('strong').after(helpButton('Block help', () => openBlockHelp(n.type)),stop);
-    const grid = bar.querySelector('#node-params-grid');
+    details.append(stop);
+    bar.querySelector('strong').after(helpButton('Block help', () => openBlockHelp(n.type)));
+    const grid = details.querySelector('#node-params-grid');
     for (const [k, v] of Object.entries(n.params || {})) {
       const f = document.createElement('div');
       f.className = 'field';
       f.innerHTML = `<label>${esc(k)}</label>`;
-      f.querySelector('label').append(helpButton('About ' + k, () => showModal(k,esc(parameterHelp(k)),[{label:'Close'}])));
+      f.querySelector('label').append(helpButton('About ' + k, () => showModal(k,esc(parameterHelp(k)),[{label:'Back to block',onClick:() => showControls(n.type,details)}])));
       const choices = blockChoices(k,n.type);
       if (choices) {
         const select = document.createElement('select');
@@ -4284,18 +4449,19 @@ const App = (() => {
         f.appendChild(select);
       } else if (typeof v === 'boolean') {
         const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = v;
-        chk.onchange = () => { pushUndo(); n.params[k] = chk.checked; renderNodeInspector();drawGraphEditor(); };
+        chk.onchange = () => { pushUndo(); n.params[k] = chk.checked; drawGraphEditor(); };
         f.appendChild(chk);
       } else {
         const inp = document.createElement('input');
         inp.type = typeof v === 'number' ? 'number' : 'text';
         inp.step = 'any'; inp.className = 'input'; inp.value = String(v);
-        inp.onchange = () => { pushUndo(); n.params[k] = typeof v === 'number' ? Number(inp.value) : inp.value;renderNodeInspector();drawGraphEditor(); };
+        inp.onchange = () => { pushUndo(); n.params[k] = typeof v === 'number' ? Number(inp.value) : inp.value;drawGraphEditor(); };
         f.appendChild(inp);
       }
       grid.appendChild(f);
     }
-    bar.querySelector('#del-node-btn').onclick = () => {
+    remove.onclick = () => {
+      closeModal();
       pushUndo();
       g.nodes = g.nodes.filter(x => x.id !== n.id);
       g.edges = g.edges.filter(ed => ed.fromNode !== n.id && ed.toNode !== n.id);
@@ -4470,6 +4636,11 @@ const App = (() => {
     });
   })();
 
+  function pixelBoard(rect) {
+    const size = Math.max(0, Math.min(rect.width, rect.height) - 16);
+    return {size, x:(rect.width-size)/2, y:(rect.height-size)/2};
+  }
+
   function drawPixelEditor() {
     resizeCanvas(pxCanvas);
     const ctx = pxCanvas.getContext('2d');
@@ -4477,8 +4648,8 @@ const App = (() => {
     if (!r.width || !r.height) return;
     const dpr = pxCanvas.width / r.width;
     const sz = pxState.size;
-    const boardPx = Math.min(r.width - 24, r.height - 76);
-    const ox = (r.width - boardPx) * 0.5, oy = 12;
+    const {size:boardPx, x:ox, y:oy} = pixelBoard(r);
+    if (!boardPx) return null;
     const cell = boardPx / sz;
 
     ctx.save();
@@ -4509,8 +4680,8 @@ const App = (() => {
 
   function pixelCoords(clientX, clientY) {
     const r = pxCanvas.getBoundingClientRect();
-    const boardPx = Math.min(r.width - 24, r.height - 76);
-    const ox = (r.width - boardPx) * 0.5, oy = 12;
+    const {size:boardPx, x:ox, y:oy} = pixelBoard(r);
+    if (!boardPx) return null;
     const cell = boardPx / pxState.size;
     const x = Math.floor((clientX - r.left - ox) / cell);
     const y = Math.floor((clientY - r.top - oy) / cell);
@@ -4628,7 +4799,7 @@ const App = (() => {
     Object.assign(map, {cols, rows, tileSize, tiles});
   }
 
-  function openTilemapSettings(assistant = false, entity = getActiveTilemapEntity()) {
+  function openTilemapSettings(entity = getActiveTilemapEntity()) {
     if (!entity) return toast('Add a tilemap first.', 'warn');
     const map = entity.components.Tilemap;
     const body = document.createElement('div');
@@ -4638,34 +4809,7 @@ const App = (() => {
       <label>Tile size (px)<input class="input" id="tm-pixels" type="number" min="4" max="256" value="${Number(map.tileSize)}"></label>
       </div><div class="muted" id="tm-size-status" role="status"></div>`.replaceAll('\$', '$');
     const status = body.querySelector('#tm-size-status');
-    if (assistant) {
-      const label = document.createElement('label');
-      label.textContent = 'Describe the map size or layout';
-      const prompt = document.createElement('textarea');
-      prompt.className = 'input';
-      prompt.placeholder = 'Try: 40 x 24, 32 px tiles, platformer';
-      label.appendChild(prompt);
-      body.prepend(label);
-      const suggest = document.createElement('button');
-      suggest.className = 'btn btn-sm';
-      suggest.textContent = 'Suggest settings';
-      label.after(suggest);
-      suggest.onclick = () => {
-        const words = prompt.value.toLowerCase();
-        const dimensions = words.match(/(\d+)\s*[x×]\s*(\d+)/);
-        const columns = words.match(/(\d+)\s*(?:cols|columns)/);
-        const rows = words.match(/(\d+)\s*rows/);
-        const pixels = words.match(/(\d+)\s*(?:px|pixel)/);
-        const preset = words.includes('platform') ? [40,18] : words.includes('arena') ? [24,24] : words.includes('wide') ? [36,20] : words.includes('small') ? [12,12] : [];
-        const values = [dimensions?.[1] || columns?.[1] || preset[0], dimensions?.[2] || rows?.[1] || preset[1], pixels?.[1]];
-        if (!values.some(Boolean)) { status.textContent = 'Use a size like 40 × 24 or a layout like platformer, arena, wide or small.'; return; }
-        ['#tm-cols','#tm-rows','#tm-pixels'].forEach((id, index) => {
-          if (values[index]) body.querySelector(id).value = values[index];
-        });
-        status.textContent = 'Review the suggestion and apply it.';
-      };
-    }
-    showModal(assistant ? 'Offline map assistant' : 'Tilemap size', body, [
+    showModal('Tilemap size', body, [
       {label:'Cancel'},
       {label:'Apply size', cls:'btn-primary', onClick: () => {
         const [cols, rows, size] = ['#tm-cols','#tm-rows','#tm-pixels'].map(id => body.querySelector(id).valueAsNumber);
@@ -4682,9 +4826,12 @@ const App = (() => {
 
   function tilemapLayout(map) {
     const wrap = tmCanvas.parentElement;
-    const base = Math.max(2, Math.min((wrap.clientWidth - 20) / map.cols,(wrap.clientHeight - 20) / map.rows));
+    const width = wrap.clientWidth;
+    const height = wrap.clientHeight;
+    const base = Math.max(1, Math.min((width - 20) / map.cols, (height - 20) / map.rows));
     const cell = Math.min(64, base * tmState.zoom);
-    return {cell, ox: 10, oy: 10};
+    return {cell, ox: Math.max(10, (width - map.cols * cell) / 2),
+      oy: Math.max(10, (height - map.rows * cell) / 2)};
   }
 
   function getActiveTilemapEntity() {
@@ -4731,7 +4878,7 @@ const App = (() => {
     const ent = getActiveTilemapEntity();
     if (!ent) {
       ctx.fillStyle = '#8b949e'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Tap "Init/Select Tilemap" to add a Tilemap to this scene', r.width / 2, r.height / 2);
+      ctx.fillText('Open Options to add a tilemap', r.width / 2, r.height / 2);
       ctx.restore(); return;
     }
     const tm = ent.components.Tilemap;
@@ -4755,7 +4902,7 @@ const App = (() => {
   }
 
   (function bindTilemapTouch() {
-    let painting = false, startCell = null, pointer = null, previous = null;
+    let painting = false, startCell = null, pointer = null, previous = null, pan = null;
     const cellAt = (cx, cy) => {
       const ent = getActiveTilemapEntity();
       if (!ent) return null;
@@ -4769,8 +4916,15 @@ const App = (() => {
       hit.tm.tiles[hit.row * hit.tm.cols + hit.c] = val;
     };
     tmCanvas.addEventListener('pointerdown', (e) => {
-      if (tmState.tool === 'pan') return;
       e.preventDefault();
+      if (tmState.tool === 'pan') {
+        if (pointer !== null) return;
+        const wrap = tmCanvas.parentElement;
+        pointer = e.pointerId;
+        pan = {x: e.clientX, y: e.clientY, left: wrap.scrollLeft, top: wrap.scrollTop};
+        tmCanvas.setPointerCapture(pointer);
+        return;
+      }
       const hit = cellAt(e.clientX, e.clientY);
       if (!hit || pointer !== null) return;
       pushUndo();
@@ -4794,7 +4948,14 @@ const App = (() => {
       painting = true; previous = hit; paint(hit); drawTilemapEditor();
     });
     tmCanvas.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== pointer || !painting || tmState.tool === 'rect' || tmState.tool === 'line') return;
+      if (e.pointerId !== pointer) return;
+      if (pan) {
+        const wrap = tmCanvas.parentElement;
+        wrap.scrollLeft = pan.left - (e.clientX - pan.x);
+        wrap.scrollTop = pan.top - (e.clientY - pan.y);
+        return;
+      }
+      if (!painting || tmState.tool === 'rect' || tmState.tool === 'line') return;
       e.preventDefault();
       const hit = cellAt(e.clientX, e.clientY);
       if (hit) {
@@ -4808,11 +4969,11 @@ const App = (() => {
       }
     });
     tmCanvas.addEventListener('pointercancel', event => {
-      if (event.pointerId === pointer) { pointer = null; painting = false; startCell = null; previous = null; }
+      if (event.pointerId === pointer) { pointer = null; painting = false; startCell = null; previous = null; pan = null; }
     });
     tmCanvas.addEventListener('pointerup', (e) => {
       if (e.pointerId !== pointer) return;
-      pointer = null; previous = null;
+      pointer = null; previous = null; pan = null;
       if (painting && startCell) {
         const end = cellAt(e.clientX, e.clientY) || startCell;
         const tm = startCell.tm, val = tmState.selectedTile;
@@ -4886,8 +5047,14 @@ const App = (() => {
   function drawAnimPreview() {
     const c = document.getElementById('anim-preview-canvas');
     if (!c) return;
+    const rect = c.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
+    if (c.width !== width || c.height !== height) { c.width = width; c.height = height; }
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#090d12'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.fillStyle = '#090d12'; ctx.fillRect(0, 0, rect.width, rect.height);
     const clip = animState.selectedClipId ? state.project?.animations?.[animState.selectedClipId] : null;
     let x = 0, y = 0, rot = 0, sx = 1, sy = 1, op = 1;
     if (clip) {
@@ -4903,7 +5070,7 @@ const App = (() => {
       }
     }
     ctx.save();
-    ctx.translate(c.width / 2 + x * 0.5, c.height / 2 + y * 0.5);
+    ctx.translate(rect.width / 2 + x * 0.5, rect.height / 2 + y * 0.5);
     ctx.rotate(rot); ctx.scale(sx, sy); ctx.globalAlpha = op;
     ctx.fillStyle = '#38bdf8';
     ctx.fillRect(-16, -16, 32, 32);
@@ -5037,12 +5204,27 @@ const App = (() => {
   }
 
   // --- Preview Runtime Control ---
+  function fitPreviewCanvas() {
+    if (!state.project) return;
+    const stage = document.getElementById('preview-stage');
+    const canvas = document.getElementById('preview-canvas');
+    const {width, height} = state.project.settings;
+    const sizes = [null, [360,640], [640,360], [640,480]];
+    const size = sizes[Number(stage.dataset.device)] || [Infinity,Infinity];
+    const scale = Math.min(stage.clientWidth / width, stage.clientHeight / height, size[0] / width, size[1] / height);
+    if (scale > 0) {
+      canvas.style.width = Math.round(width * scale) + 'px';
+      canvas.style.height = Math.round(height * scale) + 'px';
+    }
+  }
+
   function startPreview() {
     if (!state.project) return;
     if (state.previewRuntime) stopPreview();
     const overlay = document.getElementById('preview-overlay');
     const canvas = document.getElementById('preview-canvas');
     overlay.classList.add('open');
+    fitPreviewCanvas();
 
     const rt = new NexusRuntime.GameRuntime(state.project, canvas, {
       debugDraw: document.getElementById('dbg-phys-draw').checked,
@@ -5497,6 +5679,34 @@ def on_event(event, dt, game):
 
   function bindEvents() {
     bindPythonEditor();
+    const app = document.getElementById('app');
+    const focus = document.getElementById('btn-focus');
+    const exit = document.getElementById('exit-focus');
+    const setFocus = enabled => {
+      app.classList.toggle('focused-workspace', enabled);
+      focus.setAttribute('aria-pressed', String(enabled));
+      exit.hidden = !enabled;
+    };
+    focus.onclick = () => setFocus(true);
+    exit.onclick = () => { setFocus(false); focus.focus(); };
+    const hierarchy = document.getElementById('hierarchy-content');
+    const toggleHierarchy = document.getElementById('toggle-hierarchy');
+    toggleHierarchy.onclick = () => {
+      hierarchy.hidden = !hierarchy.hidden;
+      toggleHierarchy.setAttribute('aria-expanded', String(!hierarchy.hidden));
+    };
+    for (const [button, controls, title] of [
+      ['px-options','px-option-controls','Pixel art options'],
+      ['tm-options','tm-option-controls','Tilemap options'],
+      ['prev-options','prev-option-controls','Preview options']
+    ]) {
+      document.getElementById(button).onclick = () => showControls(title, document.getElementById(controls));
+    }
+    document.getElementById('prev-focus').onclick = event => {
+      const hidden = document.getElementById('preview-overlay').classList.toggle('preview-focused');
+      event.currentTarget.setAttribute('aria-pressed', String(hidden));
+      event.currentTarget.setAttribute('aria-label', hidden ? 'Show preview controls' : 'Hide preview controls');
+    };
     document.addEventListener('pointerdown', event => {
       if (event.target instanceof HTMLSelectElement && !event.target.multiple && !event.target.closest('#modal-body')) event.preventDefault();
     });
@@ -5516,6 +5726,7 @@ def on_event(event, dt, game):
     window.nexusHandleBack = () => {
       if (document.getElementById('modal-backdrop').classList.contains('open')) { closeModal(); return true; }
       if (document.getElementById('preview-overlay').classList.contains('open')) { stopPreview(); return true; }
+      if (app.classList.contains('focused-workspace')) { setFocus(false); return true; }
       if (document.querySelector('.nav-btn.active')?.dataset.ws !== 'home') { switchWorkspace('home'); return true; }
       return false;
     };
@@ -5555,11 +5766,9 @@ def on_event(event, dt, game):
       const choices = [['Fit',null],['Phone portrait',[360,640]],['Phone landscape',[640,360]],['Tablet',[640,480]]];
       const index = (Number(stage.dataset.device || 0)+1) % choices.length;
       stage.dataset.device = String(index);
-      const [name,size] = choices[index];
-      const canvas = document.getElementById('preview-canvas');
-      canvas.style.maxWidth = size ? 'min(100%, '+size[0]+'px)' : '';
-      canvas.style.maxHeight = size ? 'min(100%, '+size[1]+'px)' : '';
-      document.getElementById('prev-device').textContent = name;
+      fitPreviewCanvas();
+      document.getElementById('prev-device').textContent = choices[index][0];
+      closeModal();
     };
 
     // Home actions
@@ -5757,7 +5966,11 @@ def on_event(event, dt, game):
     };
 
     // Create Subtabs
+    document.getElementById('create-picker').onchange = event => {
+      document.querySelector(`#create-subtabs [data-sub="${event.target.value}"]`)?.click();
+    };
     document.querySelectorAll('#create-subtabs .subtab').forEach(b => b.onclick = () => {
+      document.getElementById('create-picker').value = b.dataset.sub;
       document.querySelectorAll('#create-subtabs .subtab').forEach(x => x.classList.toggle('active', x === b));
       document.querySelectorAll('#ws-create .subpanel').forEach(p => p.classList.toggle('active', p.id === 'sub-' + b.dataset.sub));
       if (b.dataset.sub === 'pixel') drawPixelEditor();
@@ -5768,10 +5981,7 @@ def on_event(event, dt, game):
     });
 
     // Pixel Editor Buttons
-    document.querySelectorAll('[data-pxtool]').forEach(b => b.onclick = () => {
-      pxState.tool = b.dataset.pxtool;
-      document.querySelectorAll('[data-pxtool]').forEach(x => x.classList.toggle('active', x === b));
-    });
+    document.getElementById('px-tool').onchange = event => { pxState.tool = event.target.value; };
     document.getElementById('px-color').oninput = (e) => { pxState.color = e.target.value; };
     document.getElementById('px-size').onchange = (e) => { savePixelHistory(); initPixelLayers(Number(e.target.value)); drawPixelEditor(); };
     document.getElementById('px-undo').onclick = () => restorePixelHistory(pxState.undo,pxState.redo);
@@ -5830,16 +6040,19 @@ def on_event(event, dt, game):
 
     // Tilemap Buttons
     document.getElementById('tm-size').onclick = () => openTilemapSettings();
-    document.getElementById('tm-ai').onclick = () => openTilemapSettings(true);
     document.getElementById('tm-undo').onclick = undo;
     document.getElementById('tm-redo').onclick = redo;
     document.getElementById('tm-zoom-in').onclick = () => { tmState.zoom = Math.min(12, tmState.zoom * 1.5); drawTilemapEditor(); };
     document.getElementById('tm-zoom-out').onclick = () => { tmState.zoom = Math.max(1, tmState.zoom / 1.5); drawTilemapEditor(); };
-    document.querySelectorAll('[data-tmtool]').forEach(b => b.onclick = () => {
-      tmState.tool = b.dataset.tmtool;
-      document.getElementById('tm-canvas-wrap').classList.toggle('is-pan', tmState.tool === 'pan');
-      document.querySelectorAll('[data-tmtool]').forEach(x => x.classList.toggle('active', x === b));
-    });
+    document.getElementById('tm-tool').onchange = event => {
+      tmState.tool = event.target.value;
+      tmCanvas.parentElement.classList.toggle('is-pan', tmState.tool === 'pan');
+    };
+    document.getElementById('tm-zoom-fit').onclick = () => {
+      tmState.zoom = 1;
+      tmCanvas.parentElement.scrollLeft = tmCanvas.parentElement.scrollTop = 0;
+      drawTilemapEditor();
+    };
     const addTilemap = (name, map) => {
       const scene = getActiveScene();
       if (!scene) return;
@@ -6024,9 +6237,23 @@ def on_event(event, dt, game):
     document.getElementById('btn-run-tests').onclick = runAutomatedTests;
     document.getElementById('btn-run-audit').onclick = runProjectAudit;
 
-    window.addEventListener('resize', () => {
-      drawSceneEditor(); drawGraphEditor(); drawPixelEditor(); drawTilemapEditor();
-    });
+    const surfaces = new Map([
+      [sceneCanvas.parentElement, drawSceneEditor], [graphCanvas.parentElement, drawGraphEditor],
+      [pxCanvas.parentElement, drawPixelEditor], [tmCanvas.parentElement, drawTilemapEditor],
+      [document.querySelector('.anim-stage'), drawAnimPreview],
+      [document.getElementById('preview-stage'), fitPreviewCanvas]
+    ]);
+    if (typeof ResizeObserver === 'function') {
+      const observer = new ResizeObserver(entries => {
+        if (!state.project) return;
+        for (const entry of entries) {
+          if (entry.contentRect.width && entry.contentRect.height) surfaces.get(entry.target)();
+        }
+      });
+      for (const element of surfaces.keys()) observer.observe(element);
+    } else {
+      window.addEventListener('resize', () => { for (const draw of surfaces.values()) draw(); });
+    }
   }
 
   function esc(s) {
