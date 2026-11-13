@@ -246,6 +246,20 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
   #python-status{grid-area:3/1/4/3}
   .anim-layout{grid-template-columns:minmax(0,1fr) minmax(165px,34%);grid-template-rows:minmax(0,1fr)}
 }
+#block-stacks{display:grid;align-content:start;gap:14px}
+.script-stack{min-width:0}
+.script-block{position:relative;background:color-mix(in srgb,var(--block) 28%,#141e2a);border:1px solid color-mix(in srgb,var(--block) 68%,#425267);border-inline-start:5px solid var(--block);border-radius:9px;margin:0 0 3px;padding:8px;min-width:0}
+.script-block.event{border-radius:16px 16px 7px 7px}
+.script-block .row{flex-wrap:wrap}
+.script-block strong{flex:1;min-width:130px}
+.script-block .inline-inputs{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.script-block .inline-inputs label{display:grid;gap:2px;font-size:11px;flex:1 1 95px;min-width:0}
+.script-block .inline-inputs .input,.script-block .inline-inputs select{min-height:32px;padding:4px 7px}
+.script-branch{margin-inline-start:clamp(8px,2vw,18px);padding-inline-start:6px;border-inline-start:2px solid var(--border)}
+.script-link{min-height:32px;padding:0 7px;color:#b9dfff;font-size:12px}
+#graph-toolbar .row{flex-wrap:nowrap}
+#graph-toolbar #btn-assign-graph[hidden]{display:none}
+@media(max-width:400px){#graph-toolbar .btn{padding-inline:5px;font-size:11px}}
 </style>
 </head>
 <body>
@@ -375,7 +389,10 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
     <section id="ws-logic" class="workspace">
       <div class="subtabs" id="logic-tabs" aria-label="Logic editor">
         <button class="subtab active" id="logic-blocks">Blocks</button>
+        <button class="subtab" id="logic-wires">Wires</button>
         <button class="subtab" id="logic-python">Python</button>
+        <button class="subtab" id="logic-project-data">Data &amp; input</button>
+        <button class="subtab" id="logic-packs">Script packs</button>
       </div>
       <div id="python-panel" class="card" style="overflow:auto" hidden>
         <select id="python-object" aria-label="Script object"></select>
@@ -390,14 +407,16 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
       <div id="graph-toolbar" class="subtabs" style="justify-content:space-between;align-items:center;">
         <div class="row" style="flex:1;min-width:0;">
           <select id="graph-selector" style="min-height:34px;max-width:160px;"></select>
-          <button class="btn btn-sm" id="btn-new-graph">+ Graph</button>
+          <button class="btn btn-sm" id="btn-new-graph">+ Script</button>
         </div>
         <div class="row">
-          <button class="btn btn-sm btn-primary" id="btn-add-node">+ Node</button>
+          <button class="btn btn-sm btn-primary" id="btn-add-node">+ Block</button>
           <button class="btn btn-sm" id="btn-graph-fit">Fit</button>
+          <button class="btn btn-sm" id="btn-assign-graph">Attach</button>
         </div>
       </div>
-      <div class="canvas-wrap" id="graph-canvas-wrap">
+      <div id="block-stacks" class="scroll-y" aria-label="Block stacks"></div>
+      <div class="canvas-wrap" id="graph-canvas-wrap" hidden>
         <canvas id="graph-canvas"></canvas>
         <div class="floating-bar">
           <span class="chip" id="graph-hint">Tap output ● then input ● to wire. Tap wire to remove.</span>
@@ -471,12 +490,14 @@ button{cursor:pointer;border:none;background:none;padding:0;min-height:38px;disp
         <div id="tm-canvas-actions" class="pill-group" aria-label="Tilemap view controls">
           <button class="tool-btn" id="tm-zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
           <button class="tool-btn" id="tm-zoom-fit" aria-label="Fit map" title="Fit map">Fit</button>
+          <button class="tool-btn" id="tm-overview" aria-label="Map overview">Map</button>
           <button class="tool-btn" id="tm-pan" aria-pressed="false" title="Pan map">Pan</button>
           <button class="tool-btn" id="tm-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
         </div>
         <div id="tm-option-controls" class="options-grid" hidden>
           <button class="btn btn-sm btn-primary" id="tm-ensure">Add tilemap</button>
           <button class="btn btn-sm" id="tm-size">Map size</button>
+          <button class="btn btn-sm" id="tm-generate">Generate terrain</button>
           <button class="btn btn-sm" id="tm-import">Import Tiled JSON</button>
           <button class="btn btn-sm" id="tm-export">Export tilemap</button>
           <button class="btn btn-sm btn-err" id="tm-delete">Delete tilemap</button>
@@ -932,11 +953,19 @@ function createNexusRuntime(root) {
   }
 
   // --- Main Game Runtime Class ---
+  const scriptProperties = {
+        Transform:['x','y','rotation','scaleX','scaleY'], RigidBody:['vx','vy','gravityScale'],
+        SpriteRenderer:['frameIndex','opacity','flipX','flipY','assetId'], Collider:['enabled','isTrigger'],
+        Health:['current','max'], UIElement:['text','visible','value','maxValue'],
+        AnimationPlayer:['playing','speed','clipId'], ParticleEmitter:['emitting','rate'], Camera:['zoom','shake']
+      };
   class GameRuntime {
     constructor(project, canvas, opts = {}) {
       this.project = deepClone(project);
       this.initialVariables = deepClone(project.variables || {});
       this.events = [];
+      this.activeActions = new Set();
+      this.audioVolumes = {master:1,music:1,effects:1,voice:1};
       this.canvas = canvas;
       this.ctx = canvas ? canvas.getContext('2d') : null;
       this.audio = new AudioEngine();
@@ -992,8 +1021,8 @@ function createNexusRuntime(root) {
       }
     }
 
-    loadScene(sceneId) {
-      const found = this.project.scenes.find(s => s.id === sceneId) || this.project.scenes[0];
+    loadScene(sceneId, restored = null) {
+      const found = restored || this.project.scenes.find(s => s.id === sceneId) || this.project.scenes[0];
       if (!found) return;
       this.result = null;
       this.events = [];
@@ -1006,6 +1035,8 @@ function createNexusRuntime(root) {
       this.joystickTouches.clear();
       Object.assign(this.virtualAxes,{x:0,y:0,jump:false,action:false});
       this.jumpPointer = null;
+      this.actionTouches = new Map();
+      this.activeActions.clear();
       this.delayedTasks = [];
       this.accumulator = 0;
       this.timers.clear();
@@ -1019,6 +1050,8 @@ function createNexusRuntime(root) {
       this.updateTransforms();
 
       this._updateCamera(0,true);
+
+      if (restored) return;
 
       // PlayOnStart Audio & OnStart Scripts
       for (const e of [...this.entities]) {
@@ -1163,9 +1196,19 @@ function createNexusRuntime(root) {
         this.update(dt);
         this._flushPendingEntities();
         for (const payload of this.events.splice(0, 32)) {
-          for (const entity of [...this.entities]) this.triggerEntityEvent(entity, 'OnMessage', payload);
+          if (payload.eventName === 'nexus:state' && this.entityMap.has(payload.other?.id)) {
+            this.triggerEntityEvent(payload.other,'OnState',{eventName:payload.value,value:payload.value});
+          } else {
+            for (const entity of [...this.entities]) this.triggerEntityEvent(entity, 'OnMessage', payload);
+          }
         }
-        if (this.nextSceneId) {
+        if (this.pendingWorld) {
+          const saved = this.pendingWorld;
+          this.pendingWorld = null;
+          this.nextSceneId = null;
+          this.project.variables = saved.variables || {};
+          this.loadScene(saved.scene.id,saved.scene);
+        } else if (this.nextSceneId) {
           const id = this.nextSceneId;
           this.nextSceneId = null;
           this.loadScene(id);
@@ -1462,6 +1505,7 @@ function createNexusRuntime(root) {
     }
 
     update(dt) {
+      this.refreshActions();
       // Timers & Delayed tasks
       for (const [eid, tState] of this.timers.entries()) {
         const e = this.entityMap.get(eid);
@@ -1628,12 +1672,12 @@ function createNexusRuntime(root) {
     }
 
     // --- Raycasting ---
-    raycast(ox, oy, dx, dy, maxDist = 500, mask = 255) {
+    raycast(ox, oy, dx, dy, maxDist = 500, mask = 255, ignoreId = null) {
       const dir = Vec2.norm({ x: dx, y: dy });
       let best = null;
       for (const e of this.entities) {
         const col = e.components.Collider;
-        if (!col || !col.enabled || (col.layer & mask) === 0) continue;
+        if (e.id === ignoreId || !col || !col.enabled || (col.layer & mask) === 0) continue;
         const b = getColliderWorldAABB(e, col);
         const minX = b.cx - b.hw, maxX = b.cx + b.hw, minY = b.cy - b.hh, maxY = b.cy + b.hh;
         const t1 = (minX - ox) / (dir.x || 1e-8), t2 = (maxX - ox) / (dir.x || 1e-8);
@@ -1650,6 +1694,120 @@ function createNexusRuntime(root) {
     }
 
     // --- Visual Scripting Executor (Zero eval, Cycle Guard) ---
+    refreshActions() {
+      const bindings = this.project.inputActions || {};
+      let pads = [];
+      try { pads = root.navigator?.getGamepads?.() || []; } catch { /* Gamepads can be disabled by browser policy. */ }
+      const next = new Set();
+      for (const [name, binding] of Object.entries(bindings)) {
+        const pad = pads[binding.player || 0];
+        const axis = binding.axis === 'left' ? this.virtualAxes.x < -0.25 :
+          binding.axis === 'right' ? this.virtualAxes.x > 0.25 :
+          binding.axis === 'up' ? this.virtualAxes.y < -0.25 :
+          binding.axis === 'down' ? this.virtualAxes.y > 0.25 : false;
+        const touch = binding.touch && this.actionTouches?.has(binding.touch);
+        if (this.keys.has(binding.key) || axis || touch || pad?.buttons[binding.button]?.pressed) next.add(name);
+      }
+      const started = [...next].filter(name => !this.activeActions.has(name));
+      this.activeActions = next;
+      for (const name of started) for (const entity of [...this.entities]) this.triggerEntityEvent(entity,'OnAction',{eventName:name});
+    }
+
+    findObject(target, owner, payload = {}) {
+      if (!target || target === 'self') return owner;
+      if (target === 'other') return payload.other || null;
+      return this.entityMap.get(target) || this.entities.find(entity => entity.name === target) || null;
+    }
+
+    gameCommands(owner, payload) {
+      const find = name => this.findObject(name,owner,payload);
+      const property = (name,component,field) => {
+        if (!Object.hasOwn(scriptProperties,component) || !scriptProperties[component].includes(field)) return null;
+        return find(name)?.components[component] || null;
+      };
+      const tile = (name,col,row) => {
+        const map = find(name)?.components.Tilemap;
+        if (!map || !Number.isInteger(col) || !Number.isInteger(row) ||
+            col < 0 || col >= map.cols || row < 0 || row >= map.rows) return null;
+        return {map,index:row*map.cols+col};
+      };
+      return {
+        find_object: name => find(name)?.id ?? null,
+        read_property: (name,component,field) => property(name,component,field)?.[field] ?? null,
+        write_property: (name,component,field,value) => {
+          const target = property(name,component,field);
+          if (!target || !['number','boolean','string'].includes(typeof value) ||
+              typeof value === 'number' && !Number.isFinite(value)) return false;
+          if (target[field] !== undefined && typeof value !== typeof target[field]) return false;
+          target[field] = value; return true;
+        },
+        read_tile: (name,col,row) => { const ref = tile(name,col,row); return ref ? ref.map.tiles[ref.index] || 0 : null; },
+        write_tile: (name,col,row,id) => {
+          const ref = tile(name,col,row);
+          if (!ref || !Number.isInteger(id) || id < 0 || id > 65535) return false;
+          ref.map.tiles[ref.index] = id; return true;
+        },
+        cast_ray: (x,y,dx,dy,distance,mask = 255) => {
+          if (![x,y,dx,dy,distance].every(Number.isFinite) || distance <= 0 || (!dx && !dy)) return null;
+          this.updateTransforms();
+          const hit = this.raycast(x,y,dx,dy,distance,mask,owner.id);
+          return hit ? {id:hit.entity.id,x:hit.x,y:hit.y,distance:hit.dist} : null;
+        },
+        camera_zoom: zoom => {
+          if (!Number.isFinite(zoom) || zoom <= 0) return;
+          const camera = this.entities.find(entity => entity.components.Camera?.enabled)?.components.Camera;
+          if (camera) camera.zoom = Math.max(0.1,Math.min(8,zoom));
+          this.camera.zoom = Math.max(0.1,Math.min(8,zoom));
+        },
+        action_held: name => this.activeActions.has(name),
+        set_state: (name,next) => {
+          const target = find(name);
+          if (!target || typeof next !== 'string' || !next || target.variables.state === next) return false;
+          target.variables.state = next;
+          this.broadcast('nexus:state',next,target);
+          return true;
+        },
+        data_value: (table,row,field) => {
+          const record = this.project.dataTables?.[table]?.[row];
+          return record && Object.hasOwn(record,field) ? deepClone(record[field]) : null;
+        },
+        seeded_random: seed => {
+          let number = Number(seed) >>> 0;
+          number = Math.imul(number ^ (number >>> 16),0x45d9f3b);
+          number = Math.imul(number ^ (number >>> 16),0x45d9f3b);
+          return ((number ^ (number >>> 16)) >>> 0)/4294967296;
+        },
+        set_audio_volume: (channel,volume) => {
+          if (Object.hasOwn(this.audioVolumes,channel) && Number.isFinite(volume))
+            this.audioVolumes[channel] = Math.max(0,Math.min(1,volume));
+        },
+        advance_turn: count => {
+          const size = Math.max(1,Math.min(32,Math.floor(Number(count) || 1)));
+          this.project.variables ||= {};
+          const turn = (Math.floor(Number(this.project.variables.turn) || 0)+1)%size;
+          this.project.variables.turn = turn; this.broadcast('turn changed',turn,owner); return turn;
+        },
+        save_world: (slot = 'world') => this.persistWorld(slot,false),
+        load_world: (slot = 'world') => this.persistWorld(slot,true)
+      };
+    }
+
+    persistWorld(slot, loading) {
+      if (typeof slot !== 'string' || !/^[a-z0-9_-]{1,32}$/i.test(slot)) return false;
+      const key = 'nexus-world:'+this.project.id+':'+slot;
+      if (loading) {
+        let value;
+        try { value = JSON.parse(root.localStorage.getItem(key) || 'null'); } catch { return false; }
+        if (value?.version !== 1 || !this.project.scenes.some(scene => scene.id === value.scene?.id) || !Array.isArray(value.scene.entities)) return false;
+        this.pendingWorld = value;
+        return true;
+      }
+      const scene = {...this.scene,entities:this.entities};
+      const data = JSON.stringify({version:1,scene,variables:this.project.variables},(key,value) => key.startsWith('_') ? undefined : value);
+      if (data.length > 2*1024*1024) return false;
+      try { root.localStorage.setItem(key,data); return true; } catch { return false; }
+    }
+
     triggerEntityEvent(entity, eventType, payload = {}) {
       const sb = entity.components?.ScriptBehavior;
       if (sb?.enabled && sb.pythonSource?.trim() && !sb._pythonFailed) {
@@ -1665,12 +1823,14 @@ function createNexusRuntime(root) {
           if (this.virtualAxes.x < 0) keys.push('left');
           if (this.virtualAxes.y > 0) keys.push('down');
           if (this.virtualAxes.y < 0) keys.push('up');
+          const initial = {x:transform.x,y:transform.y,vx:body?.vx || 0,vy:body?.vy || 0};
           const values = sb._pythonEvent(eventType, payload.dt || 0, {
-            x: transform.x, y: transform.y, vx: body?.vx || 0, vy: body?.vy || 0,
+            ...initial,
             grounded: !!entity._grounded, keys, name: entity.name,
             other: payload.other?.name || '', event_name: payload.eventName || '',
             event_value: payload.value ?? null
           }, {
+            ...this.gameCommands(entity,payload),
             get_var: (key, scope = 'global') => this.variableStore(entity, scope)[key] ?? null,
             set_var: (key, value, scope = 'global') => {
               if (typeof key === 'string' && !['__proto__','constructor','prototype'].includes(key))
@@ -1685,10 +1845,10 @@ function createNexusRuntime(root) {
             save: (slot = 'slot1') => this.gameSave(slot),
             load: (slot = 'slot1') => this.gameSave(slot, true)
           });
-          if (Number.isFinite(values.x)) transform.x = values.x;
-          if (Number.isFinite(values.y)) transform.y = values.y;
-          if (body && Number.isFinite(values.vx)) body.vx = values.vx;
-          if (body && Number.isFinite(values.vy)) body.vy = values.vy;
+          if (Number.isFinite(values.x) && values.x !== initial.x) transform.x = values.x;
+          if (Number.isFinite(values.y) && values.y !== initial.y) transform.y = values.y;
+          if (body && Number.isFinite(values.vx) && values.vx !== initial.vx) body.vx = values.vx;
+          if (body && Number.isFinite(values.vy) && values.vy !== initial.vy) body.vy = values.vy;
         } catch (err) {
           sb._pythonFailed = true;
           const location = err.traceback?.at(-1);
@@ -1714,14 +1874,14 @@ function createNexusRuntime(root) {
       for (const node of graph.nodes || []) {
         if (node.type !== eventType) continue;
         if (node.params?.filterTag && payload.other && !(payload.other.tags || []).includes(node.params.filterTag)) continue;
-        if (['OnButtonPress','OnTimer','OnMessage','OnKeyPressed','OnKeyReleased','OnGameEnd'].includes(eventType) &&
+        if (['OnButtonPress','OnTimer','OnMessage','OnKeyPressed','OnKeyReleased','OnGameEnd','OnAction','OnState'].includes(eventType) &&
             node.params?.eventName && payload.eventName !== node.params.eventName) continue;
         this._execFromNode(graph, node, entity, payload);
       }
     }
 
-    _execFromNode(graph, startNode, selfEnt, payload) {
-      const visitedSteps = { count: 0, max: 250 };
+    _execFromNode(graph, startNode, selfEnt, payload, visitedSteps = { count: 0, max: 250 }, depth = 0) {
+      const command = (name,args) => this.gameCommands(selfEnt,payload)[name](...args);
       const getVar = (scope, key) => this.variableStore(selfEnt, scope)[key];
       const setVar = (scope, key, value) => {
         if (!['__proto__','constructor','prototype'].includes(key)) this.variableStore(selfEnt, scope)[key] = value;
@@ -1744,6 +1904,16 @@ function createNexusRuntime(root) {
           const value = getVar(p.scope, p.key);
           return Array.isArray(value) ? value : [];
         };
+        const input = key => evalDataInput(node,key,p[key]);
+        switch (node.type) {
+          case 'FindObject': return command('find_object',[input('targetName')]);
+          case 'ReadProperty': return command('read_property',[input('targetName'),p.component,p.property]);
+          case 'ReadTile': return command('read_tile',[input('targetName'),input('col'),input('row')]);
+          case 'CastRay': return command('cast_ray',['x','y','dx','dy','distance'].map(input))?.id ?? null;
+          case 'DataValue': return command('data_value',[p.table,p.row,p.field]);
+          case 'ActionHeld': return command('action_held',[p.eventName]);
+          case 'SeededRandom': return command('seeded_random',[input('seed')]);
+        }
         if (node.type === 'Literal') {
           try { return JSON.parse(p.value); } catch { return p.value; }
         }
@@ -1822,8 +1992,28 @@ function createNexusRuntime(root) {
           case 'OnStart': case 'OnUpdate': case 'OnFixedUpdate': case 'OnCollision':
           case 'OnTriggerEnter': case 'OnTriggerExit': case 'OnButtonPress': case 'OnTouch':
           case 'OnTimer': case 'OnAnimComplete': case 'OnCreated': case 'OnDestroyed':
+          case 'OnAction': case 'OnState': case 'OnCall':
           case 'OnMessage': case 'OnSceneStart': case 'OnGameEnd': case 'OnKeyPressed': case 'OnKeyReleased':
             follow('out'); break;
+          case 'CallGraph': {
+            const called = this.project.graphs?.[p.graphId];
+            if (depth < 12 && called) for (const event of called.nodes.filter(item => item.type === 'OnCall'))
+              this._execFromNode(called,event,selfEnt,{...payload,value:evalDataInput(node,'value',p.value)},visitedSteps,depth+1);
+            follow(); break;
+          }
+          case 'WriteProperty': case 'WriteTile': case 'CameraZoom': case 'SetState':
+          case 'SetAudioVolume': case 'AdvanceTurn': case 'SaveWorld': case 'LoadWorld': {
+            const specs = {
+              WriteProperty:['write_property','targetName','component','property','value'],
+              WriteTile:['write_tile','targetName','col','row','tileId'],CameraZoom:['camera_zoom','zoom'],
+              SetState:['set_state','targetName','state'],SetAudioVolume:['set_audio_volume','channel','volume'],
+              AdvanceTurn:['advance_turn','players'],SaveWorld:['save_world','slot'],LoadWorld:['load_world','slot']
+            };
+            const [name,...fields] = specs[node.type];
+            const result = command(name,fields.map(field => evalDataInput(node,field,p[field])));
+            follow(node.type === 'SaveWorld' || node.type === 'LoadWorld' ? result ? 'success' : 'failure' : 'out');
+            break;
+          }
           case 'Broadcast':
             this.broadcast(p.eventName, evalDataInput(node,'value',p.value), selfEnt);
             follow(); break;
@@ -1952,7 +2142,7 @@ function createNexusRuntime(root) {
             break;
           }
           case 'PlaySound':
-            if (p.preset !== '') this.playGameSound(p.preset || 'coin', Number(p.volume ?? 0.7));
+            if (p.preset !== '') this.playGameSound(p.preset || 'coin', Number(p.volume ?? 0.7),p.channel);
             follow('out'); break;
           case 'SetText': {
             const t = targetEnt();
@@ -1989,7 +2179,8 @@ function createNexusRuntime(root) {
       runNode(startNode);
     }
 
-    playGameSound(name, volume = 0.7) {
+    playGameSound(name, volume = 0.7, channel = 'effects') {
+      volume *= this.audioVolumes.master * (this.audioVolumes[channel] ?? 1);
       const asset = this.project.assets?.[name];
       if (asset?.type === 'audio' && asset.dataUrl) {
         const sound = new root.Audio(asset.dataUrl);
@@ -2334,6 +2525,7 @@ function createNexusRuntime(root) {
             if (pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
               hitUI = true;
               if (ui.uiType === 'button') {
+                if (ui.eventName) this.actionTouches.set(ui.eventName,e.pointerId);
                 if (ui.eventName === 'jump') { this.virtualAxes.jump = true; this.jumpPointer = e.pointerId; }
                 for (const all of [...this.entities]) this.triggerEntityEvent(all, 'OnButtonPress', { eventName: ui.eventName || 'btn_click' });
               } else if (ui.uiType === 'joystick') {
@@ -2366,6 +2558,7 @@ function createNexusRuntime(root) {
           }
         } else if (type === 'up') {
           this.pointer.down = false;
+          for (const [name,id] of this.actionTouches) if (id === e.pointerId) this.actionTouches.delete(name);
           if (this.jumpPointer === e.pointerId) { this.virtualAxes.jump = false; this.jumpPointer = null; }
           if (this.joystickTouches.has(e.pointerId)) {
             this.joystickTouches.delete(e.pointerId);
@@ -2440,7 +2633,7 @@ function createNexusRuntime(root) {
     return kfs[0].value;
   }
 
-  return { Vec2, Mat2D, AudioEngine, GameRuntime, findGridPath, intersectShapes, sampleTrack, NexusScript };
+  return { scriptProperties, Vec2, Mat2D, AudioEngine, GameRuntime, findGridPath, intersectShapes, sampleTrack, NexusScript };
 }
 
 const NexusRuntime = createNexusRuntime(window);
@@ -2598,6 +2791,21 @@ const ComponentSchemas = {
 };
 
 const NodeCatalog = [
+  ...['OnCall','OnAction','OnState'].map(type => ({type,cat:'Events',color:'#dc2626',in:[],out:['out'],
+    params:type === 'OnCall' ? {} : {eventName:''}})),
+  ...[
+    ['CallGraph',{graphId:'',value:''}],['WriteProperty',{targetName:'',component:'Transform',property:'x',value:0}],
+    ['WriteTile',{targetName:'',col:0,row:0,tileId:1}],['CameraZoom',{zoom:1}],
+    ['SetState',{targetName:'',state:'attack'}],['SetAudioVolume',{channel:'effects',volume:0.7}],
+    ['AdvanceTurn',{players:2}],['SaveWorld',{slot:'world'}],['LoadWorld',{slot:'world'}]
+  ].map(([type,params]) => ({type,params,cat:'Game systems',color:'#0e7490',in:['in',...Object.keys(params).filter(key => typeof params[key] === 'number' || key === 'value')],
+    out:['SaveWorld','LoadWorld'].includes(type) ? ['success','failure'] : ['out']})),
+  ...[
+    ['FindObject',{targetName:''}],['ReadProperty',{targetName:'',component:'Transform',property:'x'}],
+    ['ReadTile',{targetName:'',col:0,row:0}],['CastRay',{x:0,y:0,dx:1,dy:0,distance:100}],
+    ['DataValue',{table:'items',row:'potion',field:'price'}],['ActionHeld',{eventName:''}],
+    ['SeededRandom',{seed:1}]
+  ].map(([type,params]) => ({type,params,cat:'Game data',color:'#0369a1',in:Object.keys(params).filter(key => typeof params[key] === 'number'),out:['val']})),
   // Events
   ...[
     ['OnSceneStart', {}], ['OnGameEnd', {eventName:''}], ['OnMessage',{eventName:'message'}],
@@ -2660,7 +2868,7 @@ const NodeCatalog = [
   { type: 'IncVariable', cat: 'Variables', color: '#d97706', in: ['in'], out: ['out'], params: { scope: 'global', key: 'score', amount: 10 } },
   { type: 'DecVariable', cat: 'Variables', color: '#d97706', in: ['in'], out: ['out'], params: { scope: 'global', key: 'score', amount: 1 } },
   // Audio / UI / Anim
-  { type: 'PlaySound', cat: 'Audio', color: '#db2777', in: ['in'], out: ['out'], params: { preset: 'coin', volume: 0.7 } },
+  { type: 'PlaySound', cat: 'Audio', color: '#db2777', in: ['in'], out: ['out'], params: { preset: 'coin', volume: 0.7, channel:'effects' } },
   { type: 'SetText', cat: 'UI', color: '#4f46e5', in: ['in','value'], out: ['out'], params: { targetName: '', text: 'Hello!', bindVar: '' } },
   { type: 'ShowElement', cat: 'UI', color: '#4f46e5', in: ['in'], out: ['out'], params: { targetName: '' } },
   { type: 'HideElement', cat: 'UI', color: '#4f46e5', in: ['in'], out: ['out'], params: { targetName: '' } },
@@ -3571,7 +3779,7 @@ const App = (() => {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.ws === ws));
     if (ws === 'scene') { resizeCanvas(sceneCanvas); drawSceneEditor(); }
     if (ws === 'inspect') renderInspector();
-    if (ws === 'logic') { if (pythonMode) renderPythonEditor(); else { resizeCanvas(graphCanvas); refreshGraphSelector(); drawGraphEditor(); } }
+    if (ws === 'logic') { if (pythonMode) renderPythonEditor(); else { refreshGraphSelector(); drawGraphEditor(); renderBlockStacks(); } }
     if (ws === 'create') { resizeCanvas(pxCanvas); drawPixelEditor(); refreshTilemapEditor(); refreshAnimEditor(); refreshUIBuilder(); refreshAssetsPanel(); }
     if (ws === 'debug') { refreshGlobalVars(); refreshProfilerStats(); }
     updateHistoryButtons();
@@ -3592,7 +3800,7 @@ const App = (() => {
     refreshTilemapEditor();
     if (document.getElementById('ws-logic').classList.contains('active')) {
       if (pythonMode) renderPythonEditor();
-      else renderNodeInspector();
+      else { renderNodeInspector(); renderBlockStacks(); }
     }
   }
 
@@ -4462,9 +4670,19 @@ const App = (() => {
     return button;
   }
 
-  function blockChoices(key,type) {
+  function blockChoices(key,type,params = {}) {
     const simple = (...values) => values.map(value => [value,value]);
     const labels = list => list.map(item => [item.id,item.name]);
+    if (key === 'graphId') return [['','Choose script'],...labels(Object.values(state.project.graphs || {}))];
+    if (key === 'component') return simple('Transform','RigidBody','SpriteRenderer','Collider','Health','UIElement','AnimationPlayer','ParticleEmitter','Camera');
+    if (key === 'property' && ['ReadProperty','WriteProperty'].includes(type))
+      return simple(...(NexusRuntime.scriptProperties[params.component || 'Transform'] || []));
+    if (key === 'table') return [['','Choose table'],...simple(...Object.keys(state.project.dataTables || {}))];
+    if (key === 'row') return [['','Choose record'],...simple(...Object.keys(state.project.dataTables?.[params.table] || {}))];
+    if (key === 'field') return [['','Choose field'],...simple(...Object.keys(state.project.dataTables?.[params.table]?.[params.row] || {}))];
+    if (key === 'channel') return simple('master','music','effects','voice');
+    if (key === 'eventName' && ['ActionHeld','OnAction'].includes(type))
+      return [['','Choose action'],...simple(...Object.keys(state.project.inputActions || {}))];
     if (key === 'scope') return [['global','Global · whole game'],['scene','Scene · current level'],['object','Object · this object']];
     if (key === 'target') return [['self','Self · this object'],['other','Other · event object']];
     if (key === 'targetName') return [['','Use Self / Other'], ...(getActiveScene()?.entities || []).map(entity => [entity.name,entity.name])];
@@ -4493,9 +4711,198 @@ const App = (() => {
       success:'Flow when the operation succeeds.', failure:'Flow if the slot is empty or the operation fails.',
       out1:'First branch to run.', out2:'Second branch to run.'
     })[port] || 'Flow output. Connect it to the next block’s In port.']);
-    showModal(type, '<p>'+esc(blockDescriptions[type] || type)+'</p>' +
+    showModal(blockName(type), '<p>'+esc(blockDescriptions[type] || type)+'</p>' +
       section('Inputs',inputs) + section('Outputs',outputs) +
       section('Settings',Object.keys(block.params).map(key => [key,parameterHelp(key)])),[{label:'Close'}]);
+  }
+
+  const blockNames = {
+    OnStart:'When this object starts',OnUpdate:'Every frame',OnFixedUpdate:'Every physics step',
+    OnSceneStart:'When the scene opens',OnMessage:'When I receive a message',OnGameEnd:'When the game ends',
+    OnKeyPressed:'When a key is pressed',OnKeyReleased:'When a key is released',OnButtonPress:'When a button is tapped',
+    OnCollision:'When I collide',OnTriggerEnter:'When a trigger is entered',OnTriggerExit:'When a trigger is exited',
+    OnTouch:'When this object is tapped',OnTimer:'When a timer finishes',OnAnimComplete:'When animation ends',
+    OnCreated:'When spawned',OnDestroyed:'When removed',MoveObject:'Move by',SetPosition:'Go to position',
+    SetVelocity:'Set speed',ApplyForce:'Push object',CreateObject:'Spawn a prefab',DestroyObject:'Remove object',
+    IncVariable:'Add to variable',DecVariable:'Subtract from variable',SetVariable:'Set variable',
+    Loop:'Repeat',Delay:'Wait',If:'If / else',SetText:'Set label text',Literal:'Constant value',
+    GetVariable:'Read variable',GetPosition:'Read position',Broadcast:'Send message',ChangeScene:'Open scene',
+    CallGraph:'Run custom block',OnCall:'When called as a custom block',FindObject:'Find object by name',
+    ReadProperty:'Read object property',WriteProperty:'Set object property',ReadTile:'Read tile',WriteTile:'Paint tile',
+    CastRay:'Cast a ray',CameraZoom:'Set camera zoom',ActionHeld:'Is action held?',SeededRandom:'Random from seed',
+    OnAction:'When action starts',SetState:'Switch object state',OnState:'When state starts',
+    DataValue:'Read data field',SetAudioVolume:'Set audio volume',AdvanceTurn:'Pass turn',
+    SaveWorld:'Save world',LoadWorld:'Load world'
+  };
+  const blockName = type => blockNames[type] || String(type).replace(/([a-z0-9])([A-Z])/g,'$1 $2');
+  const fieldNames = {eventName:'Message / event',targetName:'Object',target:'Target',scope:'Scope',key:'Variable',
+    sceneName:'Scene',prefabId:'Prefab',clipId:'Animation',filterTag:'Other tag',varKey:'Compare variable',
+    dx:'Horizontal',dy:'Vertical',vx:'Horizontal speed',vy:'Vertical speed',op:'Operation',table:'Data table',row:'Record'};
+  const fieldName = key => fieldNames[key] || key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,letter => letter.toUpperCase());
+  let wireMode = false;
+
+  function renderBlockStacks() {
+    const panel = document.getElementById('block-stacks');
+    if (panel.hidden || !state.project || !document.getElementById('ws-logic').classList.contains('active')) return;
+    const graph = getActiveGraph();
+    panel.replaceChildren();
+    if (!graph?.nodes.length) {
+      panel.textContent = graph ? 'Add an event to start a script.' : 'Create a script, then attach it to an object.';
+      return;
+    }
+    const used = new Set();
+    const nodes = new Map(graph.nodes.map(node => [node.id,node]));
+    const edges = graph.edges || [];
+    const flowEdges = edges.filter(edge => !['val','res'].includes(edge.fromPort));
+    const add = (text, handler) => {
+      const button = document.createElement('button');
+      button.className = 'script-link';
+      button.textContent = text;
+      button.onclick = handler;
+      return button;
+    };
+    const renderChain = (first, container, depth = 0) => {
+      let node = first;
+      while (node && !used.has(node.id)) {
+        used.add(node.id);
+        const def = NodeCatalog.find(candidate => candidate.type === node.type);
+        if (!def) break;
+        const card = document.createElement('article');
+        card.className = 'script-block' + (def.cat === 'Events' ? ' event' : '');
+        card.style.setProperty('--block',def.color);
+        card.dataset.blockId = node.id;
+        const header = document.createElement('div');
+        header.className = 'row';
+        const title = document.createElement('strong');
+        title.textContent = blockName(node.type);
+        const current = node;
+        header.append(title,helpButton('About '+blockName(node.type),() => openBlockHelp(current.type)),
+          add('⋯',() => {
+            state.selectedNodeId = current.id; renderNodeInspector();
+            document.getElementById('block-settings')?.click();
+          }));
+        card.append(header);
+        const fields = document.createElement('div');
+        fields.className = 'inline-inputs';
+        for (const [key,value] of Object.entries({...def.params,...node.params})) {
+          const label = document.createElement('label');
+          label.textContent = fieldName(key);
+          const port = edges.find(edge => edge.toNode === node.id && edge.toPort === key && ['val','res'].includes(edge.fromPort));
+          if (port) {
+            label.append(add('↳ '+blockName(nodes.get(port.fromNode)?.type || 'Value'),() => setBlockMode('wires')));
+          } else {
+            let input;
+            const choices = blockChoices(key,node.type,node.params);
+            if (choices) {
+              input = document.createElement('select');
+              const options = choices.some(([entry]) => String(entry) === String(value)) ? choices : [[value,String(value)],...choices];
+              input.replaceChildren(...options.map(([entry,name]) => new Option(name,entry)));
+              input.value = value;
+            } else {
+              input = document.createElement('input');
+              input.className = 'input';
+              input.type = typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text';
+              input.step = 'any';
+              input.value = value ?? '';
+              if (input.type === 'checkbox') input.checked = value;
+            }
+            input.setAttribute('aria-label',fieldName(key));
+            input.onchange = () => {
+              if (input.type === 'number' && !Number.isFinite(input.valueAsNumber)) { input.value = current.params[key] ?? value; return; }
+              pushUndo();
+              current.params ||= {};
+              current.params[key] = input.type === 'checkbox' ? input.checked : typeof value === 'number' ? Number(input.value) : input.value;
+              const dependent = {component:'property',table:'row',row:'field'};
+              if (dependent[key]) {
+                current.params[dependent[key]] = blockChoices(dependent[key],node.type,current.params)?.[0]?.[0] ?? '';
+                if (key === 'table') current.params.field = '';
+                renderBlockStacks();
+              }
+            };
+            label.append(input);
+          }
+          fields.append(label);
+        }
+        if (fields.childElementCount) card.append(fields);
+        container.append(card);
+        const outputs = def.out.filter(port => !['res','val'].includes(port));
+        if (outputs.length > 1 && depth < 8) {
+          for (const port of outputs) {
+            const branch = document.createElement('div'); branch.className = 'script-branch';
+            const caption = document.createElement('strong'); caption.textContent = fieldName(port);
+            branch.append(caption,add('+ Add block',() => openBlockLibrary({node:current,port})));
+            for (const edge of flowEdges.filter(edge => edge.fromNode === node.id && edge.fromPort === port))
+              renderChain(nodes.get(edge.toNode),branch,depth+1);
+            container.append(branch);
+          }
+          break;
+        }
+        if (outputs.length !== 1) break;
+        const port = outputs[0];
+        const next = flowEdges.filter(edge => edge.fromNode === node.id && edge.fromPort === port);
+        container.append(add(next.length ? '+ Insert block here' : '+ Add next block',() => openBlockLibrary({node:current,port})));
+        if (next.length > 1 && depth < 8) {
+          for (const edge of next) renderChain(nodes.get(edge.toNode),container,depth+1);
+          break;
+        }
+        node = next.length === 1 ? nodes.get(next[0].toNode) : null;
+      }
+    };
+    const incoming = new Set(flowEdges.map(edge => edge.toNode));
+    const roots = [...graph.nodes.filter(node => !incoming.has(node.id)), ...graph.nodes];
+    for (const node of roots) {
+      if (used.has(node.id)) continue;
+      const stack = document.createElement('section');
+      stack.className = 'script-stack';
+      renderChain(node,stack);
+      if (stack.childElementCount) panel.append(stack);
+    }
+  }
+
+  function setBlockMode(mode) {
+    wireMode = mode === 'wires';
+    setPythonMode(mode === 'python');
+  }
+
+  function openBlockLibrary(attach = null) {
+    const graph = getActiveGraph();
+    if (!graph) return toast('Create a script first.','warn');
+    const body = document.createElement('div');
+    const search = document.createElement('input');
+    search.className = 'input'; search.placeholder = 'Search blocks'; search.setAttribute('aria-label','Search blocks');
+    const list = document.createElement('div'); list.className = 'grid-2'; list.style.marginTop = '8px';
+    const inserting = attach && graph.edges.some(edge => edge.fromNode === attach.node.id && edge.fromPort === attach.port);
+    const render = () => {
+      list.replaceChildren();
+      const query = search.value.trim().toLowerCase();
+      for (const def of NodeCatalog) {
+        if (inserting && !def.out.some(port => port === 'out' || port === 'done')) continue;
+        if (attach && (!def.in.includes('in') || def.type === 'Not')) continue;
+        if (![blockName(def.type),def.type,def.cat].some(value => value.toLowerCase().includes(query))) continue;
+        const button = document.createElement('button');
+        button.className = 'btn btn-sm';
+        button.style.borderInlineStart = '4px solid '+def.color;
+        button.textContent = blockName(def.type);
+        button.onclick = () => {
+          pushUndo();
+          const id = 'n_'+Date.now()+'_'+graph.nodes.length;
+          graph.nodes.push({id,type:def.type,x:attach ? attach.node.x+245 : Math.round(state.graphCam.x+160),
+            y:attach ? attach.node.y : Math.round(state.graphCam.y+120),params:JSON.parse(JSON.stringify(def.params))});
+          if (attach) {
+            const current = graph.edges.filter(edge => edge.fromNode === attach.node.id && edge.fromPort === attach.port);
+            const nextPort = def.out.includes('out') ? 'out' : def.out.includes('done') ? 'done' : null;
+            if (nextPort) for (const edge of current) { edge.fromNode = id; edge.fromPort = nextPort; }
+            graph.edges.push({id:'e_'+id,fromNode:attach.node.id,fromPort:attach.port,toNode:id,toPort:'in'});
+          }
+          state.selectedNodeId = id; closeModal(); renderNodeInspector(); drawGraphEditor(); renderBlockStacks();
+        };
+        list.append(button);
+      }
+      if (!list.childElementCount) list.textContent = 'No matching blocks.';
+    };
+    search.oninput = render;
+    body.append(search,list); render();
+    showModal(attach ? 'Add to script' : 'Add a block',body,[{label:'Close'}]);
   }
 
   function renderNodeInspector() {
@@ -4528,7 +4935,7 @@ const App = (() => {
       f.className = 'field';
       f.innerHTML = `<label>${esc(k)}</label>`;
       f.querySelector('label').append(helpButton('About ' + k, () => showModal(k,esc(parameterHelp(k)),[{label:'Back to block',onClick:() => showControls(n.type,details)}])));
-      const choices = blockChoices(k,n.type);
+      const choices = blockChoices(k,n.type,n.params);
       if (choices) {
         const select = document.createElement('select');
         const options = choices.some(([value]) => value === v) ? choices : [[v,String(v)],...choices];
@@ -4556,7 +4963,7 @@ const App = (() => {
       g.edges = g.edges.filter(ed => ed.fromNode !== n.id && ed.toNode !== n.id);
       state.selectedNodeId = null;
       renderNodeInspector();
-      drawGraphEditor();
+      drawGraphEditor(); renderBlockStacks();
     };
   }
 
@@ -4910,15 +5317,16 @@ const App = (() => {
       oy:Math.max(10,(height-mapHeight)/2)-tmState.top};
   }
 
-  function zoomTilemap(factor) {
+  function zoomTilemap(factor, x, y) {
     const map = getActiveTilemapEntity()?.components.Tilemap;
     if (!map) return;
     const before = tilemapLayout(map);
-    const left = tmState.left, top = tmState.top;
+    x ??= before.width/2;
+    y ??= before.height/2;
     tmState.zoom = Math.max(1,Math.min(96,tmState.zoom*factor));
     const after = tilemapLayout(map);
-    tmState.left = Math.min(left,tmState.left) + ((before.width/2-before.ox)/before.cell)*after.cell+after.ox-after.width/2;
-    tmState.top = Math.min(top,tmState.top) + ((before.height/2-before.oy)/before.cell)*after.cell+after.oy-after.height/2;
+    tmState.left += ((x-before.ox)/before.cell)*after.cell+after.ox-x;
+    tmState.top += ((y-before.oy)/before.cell)*after.cell+after.oy-y;
     drawTilemapEditor();
   }
 
@@ -4991,6 +5399,12 @@ const App = (() => {
 
   (function bindTilemapTouch() {
     let painting = false, startCell = null, pointer = null, previous = null, pan = null;
+    const touches = new Map();
+    let pinch = null;
+    const pinchGeometry = () => {
+      const [a,b] = touches.values(), r = tmCanvas.getBoundingClientRect();
+      return {distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),x:(a.x+b.x)/2-r.left,y:(a.y+b.y)/2-r.top};
+    };
     const cellAt = (cx, cy) => {
       const ent = getActiveTilemapEntity();
       if (!ent) return null;
@@ -5005,7 +5419,16 @@ const App = (() => {
     };
     tmCanvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (tmState.tool === 'pan') {
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+        tmCanvas.setPointerCapture(e.pointerId);
+        if (touches.size >= 2) {
+          pointer = null; pan = null; painting = false; startCell = null; previous = null;
+          pinch = pinchGeometry();
+          return;
+        }
+      }
+      if (tmState.tool === 'pan' || e.button === 1) {
         if (pointer !== null) return;
         pointer = e.pointerId;
         pan = {x:e.clientX,y:e.clientY,left:tmState.left,top:tmState.top};
@@ -5034,7 +5457,21 @@ const App = (() => {
       if (tmState.tool === 'rect' || tmState.tool === 'line') { startCell = hit; painting = true; return; }
       painting = true; previous = hit; paint(hit); drawTilemapEditor();
     });
+    tmCanvas.addEventListener('wheel', event => {
+      event.preventDefault();
+      const rect = tmCanvas.getBoundingClientRect();
+      zoomTilemap(event.deltaY < 0 ? 1.15 : 1/1.15,event.clientX-rect.left,event.clientY-rect.top);
+    },{passive:false});
     tmCanvas.addEventListener('pointermove', (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if (pinch && touches.size >= 2) {
+        const next = pinchGeometry();
+        tmState.left += pinch.x-next.x;
+        tmState.top += pinch.y-next.y;
+        zoomTilemap(next.distance/pinch.distance,next.x,next.y);
+        pinch = next;
+        return;
+      }
       if (e.pointerId !== pointer) return;
       if (pan) {
         tmState.left = pan.left - (e.clientX-pan.x);
@@ -5055,10 +5492,16 @@ const App = (() => {
         drawTilemapEditor();
       }
     });
+    const endTouch = event => {
+      touches.delete(event.pointerId);
+      if (touches.size < 2) pinch = null;
+    };
     tmCanvas.addEventListener('pointercancel', event => {
+      endTouch(event);
       if (event.pointerId === pointer) { pointer = null; painting = false; startCell = null; previous = null; pan = null; }
     });
     tmCanvas.addEventListener('pointerup', (e) => {
+      endTouch(e);
       if (e.pointerId !== pointer) return;
       pointer = null; previous = null; pan = null;
       if (painting && startCell) {
@@ -5669,18 +6112,98 @@ def on_event(event, dt, game):
     pythonMode = enabled;
     updateHistoryButtons();
     document.getElementById('logic-python').classList.toggle('active', enabled);
-    document.getElementById('logic-blocks').classList.toggle('active', !enabled);
+    document.getElementById('logic-blocks').classList.toggle('active', !enabled && !wireMode);
+    document.getElementById('logic-wires').classList.toggle('active', !enabled && wireMode);
+    document.getElementById('block-stacks').hidden = enabled || wireMode;
+    document.getElementById('btn-graph-fit').hidden = !wireMode;
     document.getElementById('python-panel').hidden = !enabled;
-    for (const id of ['graph-toolbar','graph-canvas-wrap','node-inspector-bar']) {
-      document.getElementById(id).hidden = enabled;
-    }
+    document.getElementById('graph-toolbar').hidden = enabled;
+    for (const id of ['graph-canvas-wrap','node-inspector-bar']) document.getElementById(id).hidden = enabled || !wireMode;
     if (enabled) renderPythonEditor();
-    else { resizeCanvas(graphCanvas); refreshGraphSelector(); drawGraphEditor(); }
+    else { refreshGraphSelector(); drawGraphEditor(); renderBlockStacks(); }
   }
 
   function bindPythonEditor() {
-    document.getElementById('logic-python').onclick = () => setPythonMode(true);
-    document.getElementById('logic-blocks').onclick = () => setPythonMode(false);
+    for (const mode of ['blocks','wires','python']) document.getElementById('logic-'+mode).onclick = () => setBlockMode(mode);
+    document.getElementById('logic-packs').onclick = () => {
+      const body = document.createElement('div');
+      const file = document.createElement('input');
+      file.type = 'file'; file.accept = '.zip,application/zip'; file.setAttribute('aria-label','Choose a script pack');
+      const status = document.createElement('p'); status.setAttribute('role','status');
+      const help = document.createElement('p');
+      help.textContent = 'Export all visual scripts as a reusable ZIP. Import adds copies to the current project. Object names, scenes, assets and variables must exist in the receiving project.';
+      body.append(help,file,status);
+      const project = state.project;
+      showModal('Script packs',body,[{label:'Close'},{label:'Export ZIP',onClick:() => {
+        const graphs = Object.values(project.graphs || {});
+        if (!graphs.length) { status.textContent = 'Create a script to export first.'; return; }
+        const blob = NexusZIP.pack({'scripts.json':JSON.stringify({format:'nexus-scripts',version:1,graphs})});
+        downloadFile('nexus-scripts.zip',blob,'application/zip');
+      }},{label:'Import ZIP',cls:'btn-primary',onClick:async () => {
+        if (!file.files[0]) { status.textContent = 'Choose a script ZIP first.'; return; }
+        try {
+          if (file.files[0].size > 5*1024*1024) throw Error('Script ZIP exceeds 5 MB.');
+          const entries = await NexusZIP.unpack(file.files[0]);
+          if (!entries['scripts.json']) throw Error('Missing scripts.json.');
+          const pack = JSON.parse(NexusZIP.decoder.decode(entries['scripts.json']),(key,value) => {
+            if (['__proto__','prototype','constructor'].includes(key)) throw Error('Reserved key in script pack.');
+            return value;
+          });
+          if (pack.format !== 'nexus-scripts' || pack.version !== 1 || !Array.isArray(pack.graphs) ||
+              !pack.graphs.length || pack.graphs.length > 100) throw Error('Unsupported script pack.');
+          const catalog = new Set(NodeCatalog.map(def => def.type));
+          const ids = new Map();
+          const prefix = 'script_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_';
+          for (const graph of pack.graphs) {
+            if (!graph || typeof graph.id !== 'string' || ids.has(graph.id) || typeof graph.name !== 'string' ||
+                !Array.isArray(graph.nodes) || graph.nodes.length > 1000 || !Array.isArray(graph.edges) || graph.edges.length > 4000)
+              throw Error('Invalid script in pack.');
+            const nodeIds = new Set();
+            for (const node of graph.nodes) {
+              if (!node || typeof node.id !== 'string' || nodeIds.has(node.id) || !catalog.has(node.type) ||
+                  !Number.isFinite(node.x) || !Number.isFinite(node.y) || !node.params ||
+                  typeof node.params !== 'object' || Array.isArray(node.params)) throw Error('Invalid block in pack.');
+              nodeIds.add(node.id);
+            }
+            if (!graph.edges.every(edge => edge && nodeIds.has(edge.fromNode) && nodeIds.has(edge.toNode) &&
+                typeof edge.fromPort === 'string' && typeof edge.toPort === 'string')) throw Error('Invalid connection in pack.');
+            ids.set(graph.id,prefix+ids.size);
+          }
+          if (state.project !== project) return;
+          pushUndo();
+          for (const graph of pack.graphs) {
+            graph.id = ids.get(graph.id);
+            for (const node of graph.nodes) if (node.type === 'CallGraph') node.params.graphId = ids.get(node.params.graphId) || '';
+            project.graphs[graph.id] = graph;
+          }
+          state.selectedGraphId = pack.graphs[0].id;
+          closeModal(); refreshGraphSelector(); drawGraphEditor(); renderBlockStacks();
+          toast('Imported '+pack.graphs.length+' scripts.','ok');
+        } catch(error) { status.textContent = error.message; }
+      }}]);
+    };
+    document.getElementById('logic-project-data').onclick = () => {
+      const body = document.createElement('div');
+      body.innerHTML = '<label>Data tables (JSON)<textarea id="project-tables" class="input mono" rows="7"></textarea></label>'+
+        '<label>Input actions (JSON)<textarea id="project-actions" class="input mono" rows="6"></textarea></label><p class="muted">Actions can use key, touch, axis, player and button. Example: {"Jump":{"key":"Space","touch":"jump","button":0}}.</p><p id="project-data-status" role="status"></p>';
+      body.querySelector('#project-tables').value = JSON.stringify(state.project.dataTables || {items:{potion:{price:10}}},null,2);
+      body.querySelector('#project-actions').value = JSON.stringify(state.project.inputActions || {Jump:{key:'Space',touch:'jump',button:0}},null,2);
+      showModal('Project data and input',body,[{label:'Cancel'},{label:'Apply',cls:'btn-primary',onClick:() => {
+        try {
+          const parse = id => JSON.parse(body.querySelector(id).value,(key,value) => {
+            if (['__proto__','prototype','constructor'].includes(key)) throw Error('Reserved key: '+key);
+            return value;
+          });
+          const tables = parse('#project-tables'), actions = parse('#project-actions');
+          const record = value => value && typeof value === 'object' && !Array.isArray(value);
+          if (!record(tables) || !Object.values(tables).every(table => record(table) && Object.values(table).every(record)))
+            throw Error('Use tables containing named records.');
+          if (!record(actions) || !Object.values(actions).every(record)) throw Error('Use named input actions.');
+          pushUndo(); Object.assign(state.project,{dataTables:tables,inputActions:actions});
+          closeModal(); renderBlockStacks();
+        } catch(error) { body.querySelector('#project-data-status').textContent = error.message; }
+      }}]);
+    };
     document.getElementById('python-object').onchange = renderPythonEditor;
     document.getElementById('python-example').onclick = () => {
       pythonInput().value = pythonExample;
@@ -5688,7 +6211,7 @@ def on_event(event, dt, game):
     };
     document.getElementById('python-help').onclick = () => {
       const help = document.createElement('div');
-      help.textContent = 'Game API: game["get_var"](name, scope), set_var(name, value, scope), broadcast(name, value), change_scene(name), end_game("win"), spawn(prefab_id, dx, dy), play_sound(name), set_text(object_name, text), save(slot) and load(slot). Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
+      help.textContent = 'New commands: find_object, read_property, write_property, read_tile, write_tile, cast_ray, camera_zoom, action_held, set_state, data_value, seeded_random, set_audio_volume, advance_turn, save_world, load_world. Call commands as game["command"](...). Game API: game["get_var"](name, scope), set_var(name, value, scope), broadcast(name, value), change_scene(name), end_game("win"), spawn(prefab_id, dx, dy), play_sound(name), set_text(object_name, text), save(slot) and load(slot). Define on_event(event, dt, game). Events include OnStart, OnUpdate, OnFixedUpdate, OnCollision, OnTriggerEnter and OnButtonPress. Set game["x"], game["y"], game["vx"] or game["vy"]. Read keys, grounded, name, other and event_name. Module variables persist for each object. Available imports: math and random. Velocity requires a RigidBody. See Debug → Console for print output and runtime errors.';
       showModal('Python game API', help, [{label:'Close'}]);
     };
     document.getElementById('python-save').onclick = () => {
@@ -5818,6 +6341,7 @@ def on_event(event, dt, game):
         event.preventDefault(); openChoiceList(event.target);
       }
     });
+    setBlockMode('blocks');
     const apk = document.getElementById('btn-export-apk');
     apk.hidden = !window.NexusNative;
     apk.onclick = () => exportGameHTML(true);
@@ -6027,38 +6551,35 @@ def on_event(event, dt, game):
     };
 
     // Logic Editor Buttons
-    document.getElementById('graph-selector').onchange = (e) => { state.selectedGraphId = e.target.value; state.selectedNodeId = null; renderNodeInspector(); drawGraphEditor(); };
+    document.getElementById('graph-selector').onchange = (e) => { state.selectedGraphId = e.target.value; state.selectedNodeId = null; renderNodeInspector(); drawGraphEditor(); renderBlockStacks(); };
+    document.getElementById('btn-assign-graph').onclick = () => {
+      const graph = getActiveGraph();
+      const scene = getActiveScene();
+      if (!graph || !scene?.entities.length) return toast('Add a script and an object first.','warn');
+      const list = document.createElement('div');
+      list.className = 'grid-2';
+      for (const entity of scene.entities) {
+        const button = document.createElement('button');
+        button.className = 'btn';
+        button.textContent = entity.name;
+        button.onclick = () => {
+          pushUndo(); entity.components.ScriptBehavior ||= {enabled:true};
+          entity.components.ScriptBehavior.graphId = graph.id;
+          closeModal(); toast('Attached '+graph.name+' to '+entity.name,'ok');
+        };
+        list.append(button);
+      }
+      showModal('Attach script to object',list,[{label:'Cancel'}]);
+    };
     document.getElementById('btn-new-graph').onclick = async () => {
       const n = await promptInput('New Visual Script', 'Graph Name:', 'Behavior ' + (Object.keys(state.project.graphs).length + 1));
       if (!n) return;
       pushUndo();
       const id = 'g_' + Date.now();
       state.project.graphs[id] = { id, name: n, nodes: [{ id: 'n1', type: 'OnStart', x: 60, y: 100, params: {} }], edges: [] };
-      state.selectedGraphId = id; refreshGraphSelector(); drawGraphEditor();
+      state.selectedGraphId = id; refreshGraphSelector(); drawGraphEditor(); renderBlockStacks();
     };
-    document.getElementById('btn-add-node').onclick = () => {
-      const g = getActiveGraph(); if (!g) return toast('Create a Graph first', 'warn');
-      const wrap = document.createElement('div');
-      wrap.innerHTML = `<input class="input" id="node-q" placeholder="Search nodes (e.g. Move, OnStart, If)..." style="margin-bottom:8px;"><div id="node-cat-list" class="grid-2"></div>`;
-      const renderNodes = () => {
-        const q = wrap.querySelector('#node-q').value.toLowerCase();
-        const lst = wrap.querySelector('#node-cat-list'); lst.innerHTML = '';
-        NodeCatalog.filter(n => !q || n.type.toLowerCase().includes(q) || n.cat.toLowerCase().includes(q)).forEach(def => {
-          const b = document.createElement('button'); b.className = 'btn btn-sm';
-          b.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${def.color};"></span>${def.type}`;
-          b.onclick = () => {
-            pushUndo();
-            const nid = 'n_' + Date.now();
-            g.nodes.push({ id: nid, type: def.type, x: Math.round(state.graphCam.x + 160), y: Math.round(state.graphCam.y + 120), params: JSON.parse(JSON.stringify(def.params)) });
-            state.selectedNodeId = nid; closeModal(); renderNodeInspector(); drawGraphEditor();
-          };
-          lst.appendChild(b);
-        });
-      };
-      wrap.querySelector('#node-q').oninput = renderNodes;
-      renderNodes();
-      showModal('Add Script Node', wrap, [{ label: 'Close' }]);
-    };
+    document.getElementById('btn-add-node').onclick = () => openBlockLibrary();
     document.getElementById('btn-graph-zoom-in').onclick = () => { state.graphCam.zoom = Math.min(2.5, state.graphCam.zoom * 1.2); drawGraphEditor(); };
     document.getElementById('btn-graph-zoom-out').onclick = () => { state.graphCam.zoom = Math.max(0.4, state.graphCam.zoom / 1.2); drawGraphEditor(); };
     document.getElementById('btn-graph-fit').onclick = () => {
@@ -6163,6 +6684,55 @@ def on_event(event, dt, game):
       tmState.zoom = 1;
       tmState.left = tmState.top = 0;
       drawTilemapEditor();
+    };
+    document.getElementById('tm-overview').onclick = () => {
+      const map = getActiveTilemapEntity()?.components.Tilemap;
+      if (!map) return;
+      const preview = document.createElement('canvas');
+      preview.width = map.cols;
+      preview.height = map.rows;
+      preview.style.cssText = 'width:100%;max-height:55vh;object-fit:contain;image-rendering:pixelated;background:#090d12;cursor:crosshair';
+      preview.setAttribute('aria-label','Map overview. Tap to center the editor on a location.');
+      const ctx = preview.getContext('2d');
+      for (let row=0;row<map.rows;row++) for (let col=0;col<map.cols;col++) {
+        const id = map.tiles[row*map.cols+col];
+        if (!id) continue;
+        ctx.fillStyle = ['#6b91a7','#4ab779','#8c9aab','#cf8a40','#e26a66'][id%5];
+        ctx.fillRect(col,row,1,1);
+      }
+      preview.style.objectFit = 'fill';
+      preview.onclick = event => {
+        const rect = preview.getBoundingClientRect();
+        const col = (event.clientX-rect.left)/rect.width*map.cols;
+        const row = (event.clientY-rect.top)/rect.height*map.rows;
+        const layout = tilemapLayout(map);
+        if (tmState.zoom < 4) tmState.zoom = 4;
+        const view = tilemapLayout(map);
+        tmState.left += view.ox + col*view.cell-layout.width/2;
+        tmState.top += view.oy + row*view.cell-layout.height/2;
+        closeModal(); drawTilemapEditor();
+      };
+      showModal('Map overview',preview,[{label:'Close'}]);
+    };
+    document.getElementById('tm-generate').onclick = () => {
+      const map = getActiveTilemapEntity()?.components.Tilemap;
+      if (!map) return toast('Add a tilemap first.','warn');
+      const body = document.createElement('div');
+      body.innerHTML = '<p>Generate a platformer landscape using the selected tile. This replaces the current layer.</p><label>Seed <input aria-label="Seed" class="input" type="number" step="1" value="42"></label>';
+      showModal('Generate terrain',body,[{label:'Cancel'},{label:'Generate',cls:'btn-primary',onClick:() => {
+        const seed = body.querySelector('input').valueAsNumber;
+        if (!Number.isSafeInteger(seed)) return;
+        pushUndo();
+        let random = seed >>> 0;
+        let surface = Math.floor(map.rows*0.68);
+        map.tiles = new Array(map.cols*map.rows).fill(0);
+        for (let col=0;col<map.cols;col++) {
+          random = (Math.imul(1664525,random)+1013904223) >>> 0;
+          surface = Math.max(0,Math.min(map.rows-1,surface+(random >>> 29)%3-1));
+          for (let row=surface;row<map.rows;row++) map.tiles[row*map.cols+col] = tmState.selectedTile || 1;
+        }
+        closeModal(); drawTilemapEditor(); drawSceneEditor();
+      }}]);
     };
     document.getElementById('tm-delete').onclick = async () => {
       const scene = getActiveScene(), entity = getActiveTilemapEntity();

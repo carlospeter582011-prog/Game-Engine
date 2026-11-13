@@ -4,6 +4,9 @@ import 'dart:convert';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+import 'editor_native.dart' if (dart.library.js_interop) 'editor_web.dart';
 
 final packagePattern = RegExp(r'^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$');
 const native = MethodChannel('nexus/native');
@@ -40,12 +43,12 @@ class _NexusScreenState extends State<NexusScreen> {
   @override
   void initState() {
     super.initState();
-    native.setMethodCallHandler(_handleNative);
+    if (!kIsWeb) native.setMethodCallHandler(_handleNative);
   }
 
   @override
   void dispose() {
-    native.setMethodCallHandler(null);
+    if (!kIsWeb) native.setMethodCallHandler(null);
     super.dispose();
   }
 
@@ -94,6 +97,7 @@ class _NexusScreenState extends State<NexusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return buildWebEditor();
     const web = AndroidView(
       viewType: 'nexus/web',
       layoutDirection: TextDirection.ltr,

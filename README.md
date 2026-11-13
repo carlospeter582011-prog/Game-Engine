@@ -1,4 +1,4 @@
-# Nexus Engine for Android
+# Nexus Engine for Android and Web
 
 The Flutter app hosts the Nexus 2D editor offline. The app includes the scene editor, inspector, block logic, Python, preview, and editable ZIP import/export. Download the editor APK and AAB from [the latest GitHub release](https://github.com/carlospeter582011-prog/Game-Engine/releases/latest). Every push to main builds both artifacts and publishes a versioned release.
 
@@ -8,7 +8,7 @@ The Flutter app hosts the Nexus 2D editor offline. The app includes the scene ed
 2. Set the app name, unique Android package ID, launcher icon, orientation, version name, and build number.
 3. Tap **Build APK** and then **Save APK**. The editor packages the game HTML and assets into a lightweight Android player, signs it on the device, and opens the Android save dialog.
 
-The export works offline. The finished APK opens directly in a Android WebView with system bars visible on Android 7+. Games run without the editor installed. The editor keeps the signing key in Android Keystore. To update an installed game, export from the same Nexus installation, reuse its package ID, and increase the build number. To keep game updates portable across devices, choose your own password-protected PKCS#12 signing key before the first export and keep a backup of that file. Android Keystore keys stay on their device. An editor release intended for store distribution can be signed using the repository’s existing signing secrets.
+The export works offline. The finished APK opens directly in an Android WebView with system bars visible on Android 7+. Games run without the editor installed. The editor keeps the signing key in Android Keystore. To update an installed game, export from the same Nexus installation, reuse its package ID, and increase the build number. To keep game updates portable across devices, choose your own password-protected PKCS#12 signing key before the first export and keep a backup of that file. Android Keystore keys stay on their device. An editor release intended for store distribution can be signed using the repository’s existing signing secrets.
 
 ## Python and blocks
 
@@ -46,3 +46,17 @@ The Logic editor includes descriptions of every block’s inputs, outputs and se
 Use **Inspect → SpriteRenderer → Slice sprite sheet** to see the frame grid. Add **SpriteStates** to assign Idle, Run and Jump frame ranges. Use **Create → UI Builder → Place** to drag touch controls and HUD widgets into place.
 
 On phones, Create uses a workspace picker. Drawing tools stay above the canvas, and options open on demand. Undo and redo in the header use the current workspace’s history.
+
+## Flutter web editor
+
+Open the [Nexus website](https://carlospeter582011-prog.github.io/Game-Engine/) after the website workflow deploys. The browser editor supports preview, Python, editable project ZIPs and standalone HTML game export. Use a project ZIP to move projects between devices. Build signed game APKs from the Android editor.
+
+To build the website locally, run `bash tools/fetch-python.sh`, `flutter pub get` and `flutter build web --release`. Serve `build/web` from an HTTP server. The GitHub workflow saves the website build as an Actions artifact and deploys it with GitHub Pages when Pages is configured to use GitHub Actions.
+
+## Visual scripts and game systems
+
+- Use **Logic → Blocks** to add event stacks and change settings directly on the block. Use **Wires** for data connections. Attach the script to a scene object.
+- Create a reusable script with **When called as a custom block** and invoke it from **Run custom block**. Use **Script packs** to move scripts between projects.
+- Use **Data & input** to edit project records and bind actions to keyboard keys, touch controls and gamepad buttons. The **When an action starts** event fires once per press.
+- Blocks and Python share commands for finding objects, reading and writing component properties and tiles, raycasts, camera zoom, object state, data records, turns and seeded random values. **Save world** stores active scene objects and global variables in a local versioned slot.
+- In **Create → Tilemap**, zoom with two fingers or the mouse wheel and use **Map** to jump to a region. **Generate terrain** fills the selected layer with a repeatable landscape from a seed.
